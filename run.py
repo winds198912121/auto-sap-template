@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""SAP Config Automation CLI (Plan / Simulate modes; Apply = mock only).
+"""SAP Config Automation CLI (Plan / Simulate modes; Apply = mock or real macOS GUI).
 
 Usage:
   python run.py plan    --vars templates/example_customer_vars.yaml \
                         --steps templates/example_config_steps.yaml
   python run.py apply   --run <run_id> [--approve cc_jp01,assign_cc_company] [--approve-all]
+  python run.py apply   --run <run_id> --adapter sap_gui_mac --approve-all   # REAL SAP GUI (macOS)
   python run.py report  --run <run_id>
   python run.py demo    # end-to-end: plan + gated apply with a fault-injected retry
 
-Safety: plan & apply on this machine always use the MOCK adapter. The real SAP GUI
-Scripting adapter cannot even be imported here (Windows-only, see sapcfg/gui/win_gui.py).
+Safety: default adapter is mock. The real macOS adapter (sap_gui_mac) drives the
+actual SAP GUI for Java on this machine and needs explicit consent
+(SAPCFG_ALLOW_REAL_SAP=1 or repo-root .sapcfg_allow_real_sap) + Accessibility.
 """
 from __future__ import annotations
 
@@ -108,8 +110,11 @@ def _pretty_plan(store: RunStore) -> str:
 
 def main():
     ap = argparse.ArgumentParser(description="SAP Config Automation CLI")
-    ap.add_argument("--adapter", default="mock", choices=["mock"],
-                    help="only the mock adapter runs on this machine")
+    ap.add_argument("--adapter", default="mock",
+                    choices=["mock", "sap_gui_mac"],
+                    help="mock = in-process simulation (default); "
+                         "sap_gui_mac = real SAP GUI for Java on this macOS "
+                         "machine (needs SAPCFG_ALLOW_REAL_SAP=1 + Accessibility)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("plan", help="Plan mode: validate + dependency diff (no writes)")
     p.add_argument("--vars", default=str(TEMPLATES / "example_customer_vars.yaml"))

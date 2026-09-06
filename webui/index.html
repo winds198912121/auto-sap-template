@@ -121,7 +121,7 @@
 <body>
 <header>
   <h1>🖥️ SAP Config Automation</h1>
-  <span class="pill mock" data-i18n="hd.adapter">adapter: MOCK SAP GUI</span>
+  <span class="pill mock" id="pillAdapter" data-i18n="hd.adapter">adapter: MOCK SAP GUI</span>
   <span id="modeBadge" class="safe" data-i18n="hd.mode">PLAN-ONLY</span>
   <div class="grow"></div>
   <span class="pill" id="metaVersion">v?</span>
@@ -223,10 +223,16 @@
   </div>
   <div class="card hidden" id="applyCard">
     <h2 data-i18n="pl.gate">Apply gate (mock simulation)</h2>
+    <div class="approve-row" id="adapterRow" style="background:#eef3fa;border-color:#c6d4e4">
+      <b data-i18n="pl.channel">channel:</b>
+      <select id="selAdapter" style="min-width:230px"></select>
+      <span id="realState" style="font-size:12px;color:#52637a"></span>
+      <button class="act ghost mini" id="btnRealEnable" style="display:none"></button>
+    </div>
     <div id="approvalList"></div>
     <div class="approve-row" style="background:#eaf6ee;border-color:#b5dfc3">
       <input type="checkbox" id="chkConsent"/>
-      <span data-i18n-h="pl.consent"></span>
+      <span id="consentText" data-i18n-h="pl.consent"></span>
     </div>
     <div class="row">
       <button class="act green" id="btnApply" disabled data-i18n="pl.applybtn">▶ Run Apply (MOCK)</button>
@@ -315,9 +321,9 @@ const D = {
     "ov.kpi.conn": "実 SAP 接続",
     "ov.kpi.cap": "schema / DAG / plan / retry / verify / evidence",
     "ov.guar.h": "保証事項（設計書）",
-    "ov.guar.1": "このマシンから実システムには一切接続しません。",
+    "ov.guar.1": "既定は mock アダプタ。実システムへの接続は mac_gui.py（この Mac の Java GUI）経由のみ・明示同意が無いと拒否。",
     "ov.guar.2": "コードベースのどこにも SAP テーブルへの直接 DB 書き込みはありません。",
-    "ov.guar.3": "プランモードは読み取り専用。Apply は内蔵の <b>mock SAP</b> に対してのみ実行されます。",
+    "ov.guar.3": "プランモードは読み取り専用。Apply の既定は内蔵の <b>mock SAP</b> のみ（実 SAP は承認後に明示選択）。",
     "ov.guar.4": "全ステップ：画面操作 + ステータスメッセージ + スクリーンショット証跡 + 読み戻し比較。",
     "ov.guar.5": "上書き / human_approval 項目は、チェックしない限りヒューマンキュー行き。",
     "ov.try.h": "60 秒で試す",
@@ -341,7 +347,7 @@ const D = {
     "rh.plan": "プラン", "rh.results": "結果",
     "tbl.colDesired": "希望値", "tbl.colCurrent": "現在値",
     "st.h": "パイプライン構成図",
-    "st.sub": "Configuration-as-Code の全体像。データは上から下へ流れ、右側の支援系がエラー分類・停止・検証を担います。<b>Phase 1 は Mock SAP のみ</b>（実 SAP には一切接続しません）。",
+    "st.sub": "Configuration-as-Code の全体像。データは上から下へ流れ、右側の支援系がエラー分類・停止・検証を担います。<b>既定は Mock SAP</b>（実 SAP はこの Mac の mac_gui.py 経由・明示同意のみ）。",
     "tp.h": "テンプレートファイル",
     "tp.vars": "顧客変数",
     "tp.steps": "設定ステップ",
@@ -355,6 +361,7 @@ const D = {
     "pl.gen": "⚙ プラン生成",
     "pl.dep": "依存グラフ",
     "pl.gate": "適用ゲート（Mock シミュレーション）",
+    "pl.channel": "実行チャネル:",
     "pl.consent": "これは <b>プロセス内 mock SAP のみ</b>に対する実行であることを理解しています（実システム・実 DB は対象外）。",
     "pl.applybtn": "▶ 適用実行（MOCK）",
     "run.h": "実行ライブ",
@@ -410,9 +417,9 @@ const D = {
     "ov.kpi.conn": "real SAP connections",
     "ov.kpi.cap": "schema / DAG / plan / retry / verify / evidence",
     "ov.guar.h": "Guarantees (design doc)",
-    "ov.guar.1": "Never connects to a real system from this machine.",
+    "ov.guar.1": "Default is the mock adapter. Real-system access only via mac_gui.py (Java GUI on this Mac), refused without explicit consent.",
     "ov.guar.2": "No direct SAP DB writes anywhere in the code base.",
-    "ov.guar.3": "Plan mode is read-only; Apply runs only against the built-in <b>mock SAP</b>.",
+    "ov.guar.3": "Plan mode is read-only; Apply defaults to the built-in <b>mock SAP</b> (real SAP only after explicit selection + consent).",
     "ov.guar.4": "Every step: screen actions + status message + screenshot evidence + read-back compare.",
     "ov.guar.5": "Overwrite / human_approval steps go to the human queue unless you tick them.",
     "ov.try.h": "Try it (60 seconds)",
@@ -436,7 +443,7 @@ const D = {
     "rh.plan": "plan", "rh.results": "results",
     "tbl.colDesired": "Desired", "tbl.colCurrent": "Current",
     "st.h": "Pipeline structure",
-    "st.sub": "Configuration-as-Code at a glance. Data flows top-to-bottom; the support lane on the right handles error classification, kill switch and evidence. <b>Phase 1 is mock-only</b> — no real SAP is ever touched.",
+    "st.sub": "Configuration-as-Code at a glance. Data flows top-to-bottom; the support lane on the right handles error classification, kill switch and evidence. <b>Default is mock-only</b> — real SAP only via mac_gui.py on this Mac, after explicit consent.",
     "tp.h": "Template files",
     "tp.vars": "Customer variables",
     "tp.steps": "Config steps",
@@ -450,6 +457,7 @@ const D = {
     "pl.gen": "⚙ Generate Plan",
     "pl.dep": "Dependency graph",
     "pl.gate": "Apply gate (mock simulation)",
+    "pl.channel": "channel:",
     "pl.consent": "I understand this runs against the <b>in-process mock SAP only</b> (no real system, no real DB).",
     "pl.applybtn": "▶ Run Apply (MOCK)",
     "run.h": "Live execution",
@@ -534,13 +542,14 @@ function showView(v){
 /* ---------------- meta / scenario ---------------- */
 async function init(){
   META=await jget("/api/meta");
-  $("#metaVersion").textContent="v"+META.version+" · adapter "+META.adapter;
+  $("#metaVersion").textContent="v"+META.version;
   $("#footTemplates").textContent="templates: "+META.templates.join(", ");
   const vs=$("#selVars"),ss=$("#selSteps");
   META.templates.forEach(f=>{const o1=document.createElement("option");o1.value=f;o1.textContent=f;vs.appendChild(o1);const o2=document.createElement("option");o2.value=f;o2.textContent=f;ss.appendChild(o2);});
   vs.value="example_customer_vars.yaml";ss.value="example_config_steps.yaml";
   $("#scnLabel").textContent="scenario: "+META.scenario;
   renderTry(); renderScenarios(); renderStructure(); renderGuide();
+  renderAdapterUI(); refreshChannelUI();
   loadHistory();loadKB();
 }
 function renderTry(){
@@ -645,9 +654,9 @@ const GD = L => [
          {ja:"実行結果は <span class=gfile>runs/&lt;run_id&gt;/</span> に保存：<span class=mono>plan.json</span>（プラン diff）・<span class=mono>events.jsonl</span>（全イベント監査ログ）・<span class=mono>run.sqlite</span>（ステップ状態）・<span class=mono>evidence/*.svg</span>（画面証跡）・<span class=mono>report.md</span>（レポート）。",
           en:"Every run is saved under <span class=gfile>runs/&lt;run_id&gt;/</span>: <span class=mono>plan.json</span>, <span class=mono>events.jsonl</span> (audit log), <span class=mono>run.sqlite</span> (step state), <span class=mono>evidence/*.svg</span> (screenshots), <span class=mono>report.md</span>."}]},
   {h:{ja:"5. 安全設計（コードで強制）",en:"5. Safety posture (enforced in code)"},
-   ul:[{ja:"このマシン（macOS）では実 SAP アダプタは import すら不可（Windows 専用 + SAPCFG_ALLOW_REAL_SAP=1）",en:"On this machine (macOS) the real-SAP adapter cannot even be imported (Windows-only + SAPCFG_ALLOW_REAL_SAP=1)"},
+   ul:[{ja:"実 SAP 実行は mac_gui.py（この Mac の Java GUI）のみ・明示同意（環境変数 or リポジトリ直下の同意ファイル）が無いと拒否",en:"Real-SAP execution only via mac_gui.py (Java GUI on this Mac); refused without explicit consent (env var or repo-root consent file)"},
        {ja:"Plan モードは読み取り専用の状態ビューに対してのみ diff を取る",en:"Plan mode diffs against a read-only state view"},
-       {ja:"Apply はここでは Mock アダプタ専用（CLI --adapter mock のみ）",en:"Apply here is mock-adapter only (CLI --adapter mock is the only choice)"},
+       {ja:"既定は Mock アダプタ（CLI --adapter mock）。REAL は --adapter sap_gui_mac で明示選択",en:"Default is the mock adapter (CLI --adapter mock); REAL requires explicit --adapter sap_gui_mac"},
        {ja:"SAP テーブルへの直接 DB 書き込みコードは存在しない",en:"No direct SAP DB writes anywhere in the code base"},
        {ja:"実行には既存プラン + 項目ごとの承認が必要（上書き系はヒューマンキュー）",en:"Apply needs an existing plan + per-item approval (overwrite items → human queue)"}]},
   {h:{ja:"6. FAQ",en:"6. FAQ"}},
@@ -801,6 +810,7 @@ async function loadPlan(runId){
      :"<div style='color:#52637a'>"+t("m.noneGated")+"</div>";
   $("#applyCard").classList.remove("hidden");
   $("#btnApply").disabled=!$("#chkConsent").checked;
+  refreshChannelUI();
 }
 function layers(items){
   const lvl={};
@@ -814,6 +824,75 @@ function col(s){return {CREATE:"#1d7a8a",UPDATE:"#0e6b8a",SKIP:"#64748b",CONFLIC
 $("#chkConsent").onchange=()=>{$("#btnApply").disabled=!$("#chkConsent").checked;};
 function gatherApprovals(){return [...document.querySelectorAll(".chkAppr:checked")].map(c=>c.value)}
 
+/* ---------------- adapter channel (mock | real macOS SAP GUI) -------- */
+function adapterReal(){const s=$("#selAdapter");return !!s && s.value==="sap_gui_mac";}
+const REAL_WARN={
+  ja:"これは <b>本物の SAP GUI（この Mac の Java GUI）</b>に対する実行です。対象システム/クライアントを上部で再確認し、OCR が読めない項目・輸送依頼ダイアログは人間キューへ回ります（自動では作成しません）。",
+  en:"This runs against the <b>real SAP GUI (Java GUI on this Mac)</b>. Double-check the target system/client above; fields the OCR cannot read and transport dialogs go to the human queue (never auto-created)."
+};
+function renderAdapterUI(){
+  const sel=$("#selAdapter"); if(!sel) return;
+  sel.innerHTML="";
+  const opts=[["mock",lang==="ja"?"MOCK SAP GUI（シミュレーション）":"MOCK SAP GUI (simulation)"]];
+  if(META.real_sap_possible){
+    opts.push(["sap_gui_mac",lang==="ja"?"REAL SAP GUI（このMac・Java GUI）":"REAL SAP GUI (this Mac · Java GUI)"]);
+  }
+  opts.forEach(([v,lab])=>{const o=document.createElement("option");o.value=v;o.textContent=lab;sel.appendChild(o);});
+  sel.value=(META.adapter==="sap_gui_mac" && META.real_sap_possible)?"sap_gui_mac":"mock";
+  updateHeaderBadges();
+}
+function updateHeaderBadges(){
+  const real=adapterReal();
+  const pill=$("#pillAdapter");
+  if(pill){
+    pill.textContent=real?(lang==="ja"?"アダプタ: REAL SAP GUI":"adapter: REAL SAP GUI"):(lang==="ja"?"アダプタ: MOCK SAP GUI":"adapter: MOCK SAP GUI");
+    pill.className="pill "+(real?"warn":"mock");
+  }
+  const mb=$("#modeBadge");
+  if(mb){
+    if(real && META.real_sap_allowed){mb.textContent=lang==="ja"?"REAL SAP 有効":"REAL SAP ARMED";mb.className="danger";}
+    else if(real){mb.textContent=lang==="ja"?"要 明示有効化":"NEEDS ENABLE";mb.className="warn";}
+    else {mb.textContent=lang==="ja"?"PLAN-ONLY（承認まで適用なし）":"PLAN-ONLY";mb.className="safe";}
+  }
+}
+function refreshChannelUI(){
+  if(!window.META) return;
+  updateHeaderBadges();
+  const real=adapterReal();
+  const gateH=$("#applyCard h2");
+  if(gateH){gateH.dataset.orig=gateH.dataset.orig||gateH.textContent;
+    gateH.textContent=real?(lang==="ja"?"適用ゲート（REAL SAP GUI）":"Apply gate (REAL SAP GUI)"):gateH.dataset.orig;}
+  const ct=$("#consentText");
+  if(ct){ct.dataset.orig=ct.dataset.orig||ct.innerHTML;
+    ct.innerHTML=real?REAL_WARN[lang]:ct.dataset.orig;}
+  const ba=$("#btnApply");
+  if(ba){ba.textContent=real?(lang==="ja"?"▶ 適用実行（REAL SAP）":"▶ Run Apply (REAL SAP)"):(t("pl.applybtn"));
+    ba.disabled=!$("#chkConsent").checked;}
+  const st=$("#realState"), en=$("#btnRealEnable");
+  if(!real){if(st)st.textContent="";if(en)en.style.display="none";return;}
+  if(st){
+    if(META.real_sap_allowed)st.textContent=lang==="ja"?"・有効（同意済み）· SAP GUI にログオン済みであること":"· enabled (consented) · SAP GUI must be logged on";
+    else if(META.real_sap_possible)st.textContent=lang==="ja"?"・未有効: 下のボタンで明示的に有効化（リポジトリ直下に同意ファイル作成）":"· not enabled: enable explicitly below (creates repo-root consent file)";
+    else st.textContent="";
+  }
+  if(en){
+    en.style.display=(!META.real_sap_allowed && META.real_sap_possible)?"":"none";
+    en.textContent=lang==="ja"?"REAL SAP GUI を有効化（同意）":"Enable REAL SAP GUI (consent)";
+  }
+}
+$("#selAdapter").onchange=async()=>{
+  try{await jpost("/api/adapter",{adapter:adapterReal()?"sap_gui_mac":"mock"});}catch(e){/* channel persisted server-side when possible */}
+  refreshChannelUI();
+};
+$("#btnRealEnable").onclick=async()=>{
+  try{
+    const j=await jpost("/api/real-sap-consent",{enabled:true});
+    META.real_sap_allowed=j.real_sap_allowed;
+    renderAdapterUI();refreshChannelUI();
+    toast(lang==="ja"?"REAL SAP 有効化（同意ファイル作成）":"REAL SAP enabled (consent file created)");
+  }catch(e){toast("✘ "+e.message);}
+};
+
 /* ---------------- apply / run ---------------- */
 $("#btnApply").onclick=async()=>{
   if(!currentRun)return toast(t("m.planFirst"));
@@ -822,7 +901,7 @@ $("#btnApply").onclick=async()=>{
   $("#runTitle").textContent="· run "+currentRun;
   try{
     const p=startPolling(currentRun);
-    const res=await jpost("/api/apply",{run:currentRun,approvals,consent:$("#chkConsent").checked});
+    const res=await jpost("/api/apply",{run:currentRun,approvals,adapter:adapterReal()?"sap_gui_mac":"mock",consent:$("#chkConsent").checked});
     await p; stopPolling();
     renderSteps(res.steps,res.stats);
     renderEvidence(res.evidence||[]);

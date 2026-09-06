@@ -13,3 +13,7 @@ runs/
 error_kb/history.jsonl
 error_kb/stats.json
 error_kb/
+
+# explicit human consent to drive the real SAP GUI (mac_gui) — created from console
+.sapcfg_allow_real_sap
+webui/server.log

@@ -82,6 +82,27 @@ class Orchestrator:
         gui.connect()
         return gui
 
+    def _new_adapter(self, store: RunStore, plan: Plan):
+        """Adapter factory: name -> driver (design §3 SAP Adapter layer).
+
+        mock       : in-process simulated SAP GUI (Phase 1 default; only one
+                     allowed to plan against the mock state view).
+        sap_gui_mac: real SAP GUI for Java on THIS macOS machine, driven by
+                     Accessibility + local OCR. Consent-gated inside the
+                     adapter (env flag / .sapcfg_allow_real_sap).
+        win/sap_gui_scripting exists as a class but is never constructed here.
+        """
+        if self.adapter_name == "sap_gui_mac":
+            from .gui.mac_gui import MacSapGui   # noqa: E402  (guarded import)
+            gui = MacSapGui(system=plan.target.sap_system,
+                            client=plan.target.client,
+                            language=plan.target.language)
+            gui.connect()
+            if hasattr(gui, "set_evidence_dir"):
+                gui.set_evidence_dir(str(store.ev_dir))
+            return gui
+        return self._new_mock(store, plan)
+
     def _plan_from_store(self, run_id: str) -> Plan:
         pj = self.base_dir / run_id / "plan.json"
         return parse_plan_doc(json.loads(pj.read_text(encoding="utf-8")))
@@ -156,7 +177,7 @@ class Orchestrator:
         approvals = set(approvals or [])
         verify_meta = self._verify_meta(run_id)
 
-        gui = self._new_mock(store, plan)
+        gui = self._new_adapter(store, plan)
         self.adapter = gui
         store.set_run_status("applying")
         store.emit("apply", dict(started=now_iso(), adapter=gui.name,

@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""SAP Config Automation - local visual console (mock SAP only).
+"""SAP Config Automation - local visual console.
 
 Run:  python3 webui/server.py [--port 8912]
 Open: http://localhost:8912
 
-Everything executes against the built-in Mock SAP GUI inside this process.
-Real-system connection is impossible from this server (win_gui raises on macOS).
+Default channel: in-process Mock SAP GUI. An optional REAL channel drives the
+actual SAP GUI for Java on this macOS machine (sapcfg/gui/mac_gui.py). The real
+channel is consent-gated: env SAPCFG_ALLOW_REAL_SAP=1 or the repo-root flag file
+`.sapcfg_allow_real_sap` (created from the console via an explicit enable toggle).
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,12 +32,20 @@ from sapcfg.run import apply as run_apply  # noqa: E402
 from sapcfg.run import plan as run_plan  # noqa: E402
 from sapcfg.store import RUNS_DIR  # noqa: E402
 
+try:
+    from sapcfg.gui.mac_gui import FLAG_FILE, real_sap_allowed
+except Exception:
+    FLAG_FILE = ROOT / ".sapcfg_allow_real_sap"
+
+    def real_sap_allowed():
+        return FLAG_FILE.exists() or os.environ.get("SAPCFG_ALLOW_REAL_SAP") == "1"
+
 TEMPLATES = ROOT / "templates"
 EVIDENCE = ROOT / "runs"
 
 _lock = threading.Lock()
 # shared mutable demo state for this server process
-STATE = {"config": MockConfig(), "scenario": "clean"}
+STATE = {"config": MockConfig(), "scenario": "clean", "adapter": "mock"}
 
 
 def _list_runs() -> list[dict]:
@@ -101,14 +112,15 @@ class H(BaseHTTPRequestHandler):
             return self._send_file(ROOT / "webui" / "index.html", "text/html")
         if p == "/api/meta":
             return self._json(dict(
-                version=VERSION, adapter="mock", mock=True,
-                real_sap_possible=False,
+                version=VERSION, adapter=STATE["adapter"], mock=True,
+                real_sap_possible=(sys.platform == "darwin"),
+                real_sap_allowed=real_sap_allowed(),
                 scenario=STATE["scenario"],
                 mode="PLAN_ONLY-until-approved",
                 templates=sorted(x.name for x in TEMPLATES.glob("*.yaml")),
                 schemas=[x.name for x in (ROOT / "schema").glob("*.json")],
-                note="Mock SAP GUI in-process. Real SAP GUI Scripting driver is "
-                     "Windows-only and requires explicit env approval.",
+                note=("adapter mock = in-process simulation; adapter sap_gui_mac = "
+                      "real SAP GUI for Java on this Mac (consent-gated)."),
             ))
         if p == "/api/runs":
             return self._json(_list_runs())
@@ -151,6 +163,12 @@ class H(BaseHTTPRequestHandler):
             if p == "/api/scenario":
                 self._set_scenario(body.get("name", "clean"))
                 return self._json(dict(ok=True, scenario=STATE["scenario"]))
+            if p == "/api/adapter":
+                return self._json(self._set_adapter(body.get("adapter", "mock")))
+            if p == "/api/real-sap-consent":
+                return self._json(self._toggle_real_consent(bool(body.get("enabled"))))
+            if p == "/api/probe":
+                return self._json(self._probe(body))
             if p == "/api/validate-template":
                 vs = body.get("vars", "example_customer_vars.yaml")
                 sf = body.get("steps", "example_config_steps.yaml")
@@ -245,17 +263,70 @@ class H(BaseHTTPRequestHandler):
         run_id = body.get("run")
         if not run_id or not (RUNS_DIR / run_id / "plan.json").exists():
             return dict(error=f"unknown run: {run_id}")
+        adapter = body.get("adapter") or STATE["adapter"]
+        if adapter not in ("mock", "sap_gui_mac"):
+            return dict(error=f"unknown adapter: {adapter}")
+        if adapter == "sap_gui_mac" and not real_sap_allowed():
+            return dict(error=(
+                "Real SAP channel is not enabled. Enable it explicitly first "
+                "(console: enable REAL SAP GUI consent) or export "
+                "SAPCFG_ALLOW_REAL_SAP=1 and restart."))
         # re-approval token must be explicit (UI sends it when the box is ticked)
         if not body.get("consent"):
-            return dict(error="Apply refused: consent flag missing (mock simulation only)")
+            return dict(error="Apply refused: consent flag missing")
         approvals = body.get("approvals", [])
         approve_all = bool(body.get("approve_all"))
+        cfg = STATE["config"] if adapter == "mock" else None
         store = run_apply(run_id, approvals=approvals, approve_all=approve_all,
-                          config=STATE["config"])
+                          config=cfg, adapter=adapter)
         steps = store.list_steps()
-        return dict(run_id=run_id, steps=steps,
+        return dict(run_id=run_id, steps=steps, adapter=adapter,
                     stats=store.summary_stats(),
                     evidence=store.evidence_files())
+
+    def _set_adapter(self, name: str) -> dict:
+        if name not in ("mock", "sap_gui_mac"):
+            return dict(error=f"unknown adapter: {name}")
+        if name == "sap_gui_mac" and not real_sap_allowed():
+            return dict(error=("Real SAP channel not enabled: tick the enable "
+                               "button first (creates repo-root "
+                               ".sapcfg_allow_real_sap) or export "
+                               "SAPCFG_ALLOW_REAL_SAP=1."))
+        STATE["adapter"] = name
+        return dict(ok=True, adapter=name, real_sap_allowed=real_sap_allowed())
+
+    def _toggle_real_consent(self, enabled: bool) -> dict:
+        if enabled:
+            FLAG_FILE.write_text(
+                "Explicit human consent to drive the real SAP GUI on this Mac\n"
+                "created from the console. Delete this file to revoke.\n")
+        else:
+            FLAG_FILE.unlink(missing_ok=True)
+        return dict(ok=True, real_sap_allowed=real_sap_allowed())
+
+    def _probe(self, body: dict) -> dict:
+        """Attach to the real SAP GUI (or mock) and report session facts."""
+        adapter = body.get("adapter") or STATE["adapter"]
+        system = body.get("system", "ADT")
+        client = body.get("client", "110")
+        if adapter == "mock":
+            return dict(ok=True, adapter="mock", system="S4D", client="100",
+                        message="mock channel ready (in-process)")
+        if not real_sap_allowed():
+            return dict(error="Real SAP channel not enabled (see /api/real-sap-consent)")
+        from sapcfg.gui.mac_gui import MacSapGui
+        try:
+            gui = MacSapGui(system=system, client=client)
+            gui.connect()
+            info = dict(ok=True, adapter="sap_gui_mac", system=system,
+                        client=client, message="attached to SAP GUI session")
+            try:
+                gui.disconnect()
+            except Exception:
+                pass
+            return info
+        except Exception as e:
+            return dict(error=f"{type(e).__name__}: {e}")
 
     def _set_scenario(self, name: str):
         cfg = MockConfig()
@@ -315,9 +386,11 @@ def main():
     ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args()
     srv = ThreadingHTTPServer((args.host, args.port), H)
-    print(f"SAP Config Automation console  (mock SAP, v{VERSION})")
+    ch = STATE["adapter"]
+    print(f"SAP Config Automation console  (adapter: {ch}, v{VERSION})")
     print(f"  open http://{args.host}:{args.port}")
-    print("  PLAN-ONLY until you tick consent + per-item approvals; apply = mock simulation")
+    print("  PLAN-ONLY until you tick consent + per-item approvals; apply = mock"
+          " simulation, or real SAP GUI (macOS) after explicit enable")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
