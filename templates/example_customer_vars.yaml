@@ -1,0 +1,21 @@
+# Customer variables file  (design doc §4.1)
+# Usage: 客户変数ファイル -- 各プロジェクト/顧客ごとに値を変える
+template_id: ADT_MANUFACTURING_BASE
+template_version: 1.0.0
+customer: CUSTOMER_A
+target:
+  environment: DEV
+  sap_system: S4D
+  client: "100"
+  language: EN
+variables:
+  company_code: JP01
+  company_name: Japan Company
+  currency: JPY
+  chart_of_accounts: YCOA
+  fiscal_year_variant: K4
+  plant: JP10
+  plant_name: Japan Plant 10
+  sales_org: JP01
+  purchasing_org: JP01
+  controlling_area: YC01

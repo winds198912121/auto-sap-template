@@ -1,0 +1,82 @@
+# Error Knowledge Base rules (design §6.2 / §7.2) -- versioned, approval-gated.
+# Match order enforced by Classifier: msg_class+msg_number > tcode+text > text > class.
+# New errors are NEVER added here directly: they land in error_kb/pending.json and are
+# approved by a consultant before promotion (auto_fix_allowed=False until then).
+- id: LK-100
+  classification: LOCK
+  text_re: "(?i)lock|locked|another user|in use by|still being changed"
+  retry_max: 2
+  risk: low
+  approved_by: "framework-v1"
+  notes: "Object/table lock - bounded wait+retry, then human (§6.1 lock row)"
+
+- id: TS-100
+  classification: TRANSIENT
+  text_re: "(?i)timeout|session busy|session .*busy|connection.*lost|not responding|network error"
+  retry_max: 2
+  risk: low
+  approved_by: "framework-v1"
+
+- id: NV-100
+  classification: NAVIGATION
+  text_re: "(?i)back at (the )?(start|initial)|initial screen|easy access|window level changed|wrong screen"
+  retry_max: 2
+  notes: "Return to safe start, re-enter transaction code, retry"
+  approved_by: "framework-v1"
+
+- id: PF-100
+  classification: PRECONDITION
+  text_re: "(?i)does not exist in client|not defined|first (create|define)|must (be )?(created|defined) first|先に(作成|定義)|存在しません"
+  retry_max: 0
+  action: human
+  risk: medium
+  auto_fix_allowed: false
+  approved_by: "framework-v1"
+  notes: "Schedule missing dependency first, then retry (planner normally prevents this)"
+
+- id: IN-100
+  classification: INPUT
+  text_re: "(?i)enter (a|the) |not a valid (value|entry)|invalid value|range|too long|outside (the )?(allowed )?domain|値が不正"
+  retry_max: 0
+  action: human
+  risk: medium
+  auto_fix_allowed: false
+  approved_by: "framework-v1"
+  notes: "Should be blocked at Template validation; runtime occurrence -> evidence to human"
+
+- id: PE-100
+  classification: PERMISSION
+  text_re: "(?i)not authorized|no authorization|authorization object|su53|insufficient privilege|権限がありません"
+  retry_max: 0
+  action: human
+  risk: high
+  auto_fix_allowed: false
+  approved_by: "framework-v1"
+  notes: "Never retry. Attach SU53 evidence. Route to human (§6.1 permission row)"
+
+- id: AE-100
+  classification: ALREADY_EXISTS
+  text_re: "(?i)already exists|already been created|already defined|すでに存在|作成済み"
+  retry_max: 0
+  action: verify
+  risk: low
+  approved_by: "framework-v1"
+  notes: "Re-read and compare; identical -> SKIPPED_IDEMPOTENT, differs -> business conflict"
+
+- id: BC-100
+  classification: BUSINESS_CONFLICT
+  text_re: "(?i)differs? from|conflict|inconsistent with template|既存値.*異な"
+  retry_max: 0
+  action: human
+  risk: high
+  auto_fix_allowed: false
+  approved_by: "framework-v1"
+  notes: "No automatic overwrite (§6.1 business conflict row). Wait for approval."
+
+- id: BS-100
+  classification: TRANSIENT
+  msg_class: "E0"
+  msg_number: "000"
+  retry_max: 1
+  notes: "Illustrative class+number style rule (would be first priority)"
+  approved_by: "framework-v1"

@@ -1,0 +1,77 @@
+# Configuration steps definition  (design doc §4.2)
+# Business intent only -- GUI controls / tcode mechanics live in step handlers (sapcfg/steps).
+# Field keys below are *semantic* (mapped to screens by the handler/adapter), never raw control IDs.
+template_id: ADT_MANUFACTURING_BASE
+template_version: 1.0.0
+target:
+  environment: DEV
+  sap_system: S4D
+  client: "100"
+config_items:
+  # 1) Chart of accounts (IMG: Financial Accounting Global Settings > G/L Accounts > Chart of Accounts)
+  - id: coa_jp
+    kind: chart_of_accounts
+    title: "勘定科目表 YCOA 作成 (OB13)"
+    transaction: OB13
+    depends_on: []
+    params:
+      code: "{{chart_of_accounts}}"
+      name: "JP Group Chart of Accounts"
+    on_existing: skip_if_match
+    verify:
+      scope: [code, name]
+
+  # 2) Fiscal year variant (IMG: ... > Ledgers > Fiscal Year and Posting Periods)
+  - id: fv_jp
+    kind: fiscal_year_variant
+    title: "会計年度バリアント K4 作成 (OB29)"
+    transaction: OB29
+    depends_on: []
+    params:
+      code: "{{fiscal_year_variant}}"
+      name: "Calendar year, 4 special periods"
+      n_periods: 16
+    on_existing: skip_if_match
+
+  # 3) Company code global parameters (OBY6) -- requires COA + fiscal variant to exist
+  - id: cc_jp01
+    kind: company_code_global_params
+    title: "会社コード JP01 基本データ (OBY6)"
+    transaction: OBY6
+    depends_on: [coa_jp, fv_jp]
+    params:
+      company_code: "{{company_code}}"
+      company_name: "{{company_name}}"
+      currency: "{{currency}}"
+      chart_of_accounts: "{{chart_of_accounts}}"
+      fiscal_year_variant: "{{fiscal_year_variant}}"
+      country: JP
+      city: Tokyo
+      language: JA
+    on_existing: require_match
+    verify:
+      scope: [company_name, currency, chart_of_accounts, fiscal_year_variant, country]
+
+  # 4) Assign company code -> company (OX02)
+  - id: assign_cc_company
+    kind: assign_companycode_company
+    title: "会社コード と 会社の割当 (OX02)"
+    transaction: OX02
+    depends_on: [cc_jp01]
+    params:
+      company_code: "{{company_code}}"
+      company: "01"
+    on_existing: require_match
+    human_approval: true   # cross-entity assignment: gate by default
+
+  # 5) Plant definition (OX10)
+  - id: plant_jp10
+    kind: plant_create
+    title: "プラント JP10 定義 (OX10)"
+    transaction: OX10
+    depends_on: [cc_jp01]
+    params:
+      plant: "{{plant}}"
+      company_code: "{{company_code}}"
+      name_1: "{{plant_name}}"
+    on_existing: skip_if_match

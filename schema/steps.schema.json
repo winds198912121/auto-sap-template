@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aladdin-techec.local/sap-cfg/steps.schema.json",
+  "title": "SAP Configuration Template - Configuration Steps",
+  "description": "Business template describing target SAP configuration (design doc §4.2). GUI control logic lives in Automation Adapters/steps, NOT here (principle 4.3). Credentials, direct DB table names and SQL are forbidden.",
+  "type": "object",
+  "required": ["template_id", "template_version", "target", "config_items"],
+  "additionalProperties": false,
+  "properties": {
+    "template_id": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" },
+    "template_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "template_title": { "type": "string", "maxLength": 200 },
+    "template_author": { "type": "string", "maxLength": 100 },
+    "template_notes": { "type": "string", "maxLength": 2000 },
+    "target": { "$ref": "#/definitions/target" },
+    "variables": { "$ref": "#/definitions/variables" },
+    "config_items": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/config_item" }
+    }
+  },
+  "definitions": {
+    "target": {
+      "type": "object",
+      "required": ["environment", "sap_system", "client"],
+      "additionalProperties": false,
+      "properties": {
+        "environment": { "enum": ["DEV", "QA", "PRD"] },
+        "sap_system": { "type": "string", "pattern": "^[A-Za-z0-9_]{1,16}$" },
+        "client": { "type": "string", "pattern": "^\\d{3}$" },
+        "language": { "type": "string", "minLength": 2, "maxLength": 2 }
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "string", "maxLength": 200 },
+          { "type": "number" },
+          { "type": "boolean" }
+        ]
+      },
+      "propertyNames": {
+        "not": { "pattern": "(?i)pass(word|wd)?|secret|token|pwd|sso|api[_-]?key|credential" }
+      }
+    },
+    "config_item": {
+      "type": "object",
+      "required": ["id", "kind", "title", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+        "kind": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 1000 },
+        "transaction": { "type": "string", "pattern": "^[A-Z0-9/]{1,20}$" },
+        "params": {
+          "description": "Business target values. Scalars may reference customer variables as {{var}}.",
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              { "type": "string", "maxLength": 200 },
+              { "type": "number" },
+              { "type": "boolean" },
+              { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 100 }
+            ]
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+          "uniqueItems": true
+        },
+        "on_existing": {
+          "enum": ["skip_if_match", "update_if_diff", "require_match", "always_ask"],
+          "default": "skip_if_match"
+        },
+        "human_approval": { "type": "boolean", "default": false },
+        "timeout_s": { "type": "number", "minimum": 5, "maximum": 3600, "default": 120 },
+        "retry": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max": { "type": "integer", "minimum": 0, "maximum": 10, "default": 2 },
+            "backoff_s": { "type": "number", "minimum": 0, "maximum": 300, "default": 2 },
+            "whitelist": { "type": "array", "items": { "type": "string" }, "maxItems": 20 }
+          }
+        },
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Read-back verification. Default: all scalar params compared eq after execution.",
+          "properties": {
+            "scope": { "type": "array", "items": { "type": "string" } },
+            "ignore": { "type": "array", "items": { "type": "string" } },
+            "extra": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/expectation" }
+            }
+          }
+        }
+      }
+    },
+    "expectation": {
+      "type": "object",
+      "required": ["op", "expected"],
+      "additionalProperties": false,
+      "properties": {
+        "op": { "enum": ["eq", "neq", "contains", "in", "regex"] },
+        "expected": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      }
+    }
+  }
+}

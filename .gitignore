@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Run artifacts (evidence, sqlite, screenshots)
+runs/
+
+# OS
+.DS_Store
+
+# Error KB runtime data (rules live versioned in error_rules/)
+error_kb/history.jsonl
+error_kb/stats.json
+error_kb/

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>SAP Config Automation · Console (MOCK)</title>
+<style>
+  :root{
+    --blue:#1e3a5f; --blue2:#2456a6; --bg:#f2f5f9; --card:#ffffff; --line:#dbe3ec;
+    --green:#1b7f3b; --red:#c0392b; --amber:#b7791f; --grey:#64748b; --dark:#0f1c2e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 -apple-system,"Segoe UI","Hiragino Sans","PingFang SC",sans-serif;background:var(--bg);color:var(--dark)}
+  header{background:var(--blue);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  .pill{font-size:11px;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,.16)}
+  .pill.mock{background:#0e6b3a}
+  .pill.warn{background:#8a5a00}
+  .grow{flex:1}
+  #modeBadge{font-size:11px;padding:3px 10px;border-radius:6px}
+  .safe{background:#0e6b3a}.danger{background:#8f1d12}
+  .wrap{display:grid;grid-template-columns:190px 1fr;min-height:calc(100vh - 46px)}
+  nav{background:#fafcff;border-right:1px solid var(--line);padding:14px 8px}
+  nav button{display:block;width:100%;text-align:left;padding:9px 12px;margin:2px 0;border:0;background:transparent;
+    border-radius:8px;cursor:pointer;font-size:13px;color:#33465c}
+  nav button:hover{background:#eaf0f8}
+  nav button.on{background:var(--blue2);color:#fff;font-weight:600}
+  main{padding:18px 22px;overflow:auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  .card h2{margin:0 0 10px;font-size:15px;color:var(--blue)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button.act{background:var(--blue2);color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px}
+  button.act:disabled{background:#b7c3d4;cursor:not-allowed}
+  button.act.green{background:var(--green)}
+  button.act.ghost{background:#fff;color:var(--blue2);border:1px solid var(--blue2)}
+  select,input[type=text]{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:12px;background:#eef3fa;border:1px solid var(--line);padding:2px 9px;border-radius:99px}
+  .chip b{color:var(--blue2)}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{color:#52637a;font-weight:600;background:#f7fafd;white-space:nowrap}
+  .st{font-weight:700;padding:2px 8px;border-radius:6px;font-size:11px;color:#fff;white-space:nowrap}
+  .st.CREATE{background:#1d7a8a}.st.UPDATE{background:#0e6b8a}.st.SKIP{background:#64748b}
+  .st.CONFLICT{background:var(--red)}.st.BLOCKED{background:#6d3b9e}.st.ERROR{background:#b91c1c}
+  .st.SUCCESS{background:var(--green)}.st.RUNNING{background:var(--blue2)}.st.RETRYING{background:var(--amber)}
+  .st.FAILED{background:var(--red)}.st.MANUAL{background:#7c3aed}.st.PENDING{background:#94a3b8}
+  .st.SKIPPED{background:#64748b}.st.BLOCKED{background:#6d3b9e}
+  .mono{font-family:Menlo,Consolas,monospace;font-size:12px}
+  #log{height:250px;overflow:auto;background:#0f1c2e;color:#cfe3ff;border-radius:10px;padding:10px;font:12px/1.55 Menlo,Consolas,monospace;white-space:pre-wrap}
+  #log .warn{color:#ffd98a}.log-err{color:#ff9d94}.log-ok{color:#8fe3a8}
+  .screenbox{border:1px solid #9fb0c2;border-radius:10px;overflow:hidden;background:#eef2f6}
+  .screenbar{background:#1e3a5f;color:#fff;padding:8px 12px;font-weight:600;display:flex;gap:10px;font-size:12px}
+  .sfield{display:grid;grid-template-columns:180px 1fr;gap:8px;padding:7px 12px;align-items:center}
+  .sfield label{color:#52637a;font-size:12px;text-align:right}
+  .sfield .v{background:#fff;border:1px solid #c9d4e0;border-radius:5px;padding:5px 9px;font:13px Menlo,Consolas,monospace}
+  .sfield .v.key{outline:2px solid var(--blue2)}
+  .sstatus{margin-top:10px;border-top:3px solid var(--grey);background:#dfe6ec;padding:7px 12px;font-size:13px}
+  .sbuttons{display:flex;gap:16px;padding:8px 14px;font-size:12px;color:#33465c}
+  .ev{display:inline-block;margin:4px;width:190px}
+  .ev img{width:100%;border:1px solid var(--line);border-radius:8px;display:block}
+  .ev div{font-size:10.5px;color:var(--grey);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kpi{display:flex;gap:12px;margin:6px 0}
+  .kpi .box{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;text-align:center}
+  .kpi .n{font-size:24px;font-weight:700;color:var(--blue2)}
+  .kpi .l{font-size:11px;color:var(--grey)}
+  .depbox{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .depnode{border:2px solid var(--blue2);color:var(--blue2);font:11px Menlo,monospace;padding:4px 10px;border-radius:99px;background:#eef4ff;white-space:nowrap}
+  .deparrow{color:#9aa9ba;font-weight:700}
+  .ok{color:var(--green);font-weight:600}.bad{color:var(--red);font-weight:600}
+  .approve-row{background:#fff8ec;border:1px solid #f0d9a8;padding:8px 10px;border-radius:8px;display:flex;gap:10px;align-items:center;margin:5px 0}
+  .hidden{display:none}
+  #toast{position:fixed;bottom:20px;right:20px;background:#0f1c2e;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:99;opacity:0;transition:.3s;max-width:420px}
+  #toast.show{opacity:1}
+  .code{border:1px solid var(--line);background:#0f1c2e;color:#d9e8ff;border-radius:8px;padding:12px;font:12px Menlo,Consolas,monospace;white-space:pre-wrap;overflow:auto;max-height:420px}
+  .tree .lvl{color:#5c6f86}
+  .flow{display:flex;align-items:center;gap:8px;font-size:12px;color:#52637a;flex-wrap:wrap}
+  .flow .s{background:#eef3fa;padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
+  .flow .s.done{background:#e3f5e9;border-color:#a8d9b8;color:#14602f}
+  footer{color:#8aa0b8;font-size:11px;padding:8px 2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🖥️ SAP Config Automation</h1>
+  <span class="pill mock">adapter: MOCK SAP GUI</span>
+  <span id="modeBadge" class="safe">PLAN-ONLY</span>
+  <div class="grow"></div>
+  <span class="pill" id="metaVersion">v?</span>
+  <button class="act ghost" id="btnScenario">🔄 clean</button>
+</header>
+<div class="wrap">
+<nav id="nav">
+  <button data-view="overview" class="on">1 · Overview</button>
+  <button data-view="template">2 · Template &amp; Schema</button>
+  <button data-view="plan">3 · Plan (diff)</button>
+  <button data-view="run">4 · Apply (mock, gated)</button>
+  <button data-view="report">5 · Report</button>
+</nav>
+<main>
+
+<!-- ================= OVERVIEW ================= -->
+<section id="view-overview">
+  <div class="card">
+    <h2>What this is</h2>
+    <p>Configuration-as-Code pipeline for standard SAP customizing. Reads a business Template
+       (customer variables + config steps), validates it against JSON Schema, resolves
+       dependencies, diffs against current SAP state (<b>Plan mode</b>) and — only after your
+       per-item approval — executes with a state machine: retry → read-back verify → human queue.</p>
+    <div class="kpi">
+      <div class="box"><div class="n">5</div><div class="l">config steps (OB13/OB29/OBY6/OX02/OX10)</div></div>
+      <div class="box"><div class="n">2</div><div class="l">template files (vars + steps)</div></div>
+      <div class="box"><div class="n">0</div><div class="l">real SAP connections</div></div>
+      <div class="box"><div class="n">✓</div><div class="l">schema / DAG / plan / retry / verify / evidence</div></div>
+    </div>
+    <div class="grid2">
+      <div>
+        <b>Guarantees (design doc)</b>
+        <ul style="margin:6px 0 0;padding-left:18px;color:#33465c">
+          <li>Never connects to a real system from this machine.</li>
+          <li>No direct SAP DB writes anywhere in the code base.</li>
+          <li>Plan mode is read-only; Apply runs only against the built-in <b>mock SAP</b>.</li>
+          <li>Every step: screen actions + status message + screenshot evidence + read-back compare.</li>
+          <li>Overwrite / human_approval steps go to the human queue unless you tick them.</li>
+        </ul>
+      </div>
+      <div>
+        <b>Try it (60 seconds)</b>
+        <ol style="margin:6px 0 0;padding-left:18px;color:#33465c">
+          <li><span class="flow"><span class="s">Overview</span><span class="deparrow">→</span><span class="s">2 Template</span></span> inspect structure &amp; schema</li>
+          <li>Go to <b>3 Plan</b> → <span class="act" style="padding:2px 8px">Generate Plan</span></li>
+          <li>Approve gated items, tick consent → <span class="act green" style="padding:2px 8px">Run Apply (MOCK)</span></li>
+          <li>Watch the simulated SAP GUI, then open <b>5 Report</b></li>
+        </ol>
+      </div>
+    </div>
+    <p style="margin-bottom:0"><b>Scenario:</b>
+      <button class="act ghost" data-scn="clean">🧹 clean DEV</button>
+      <button class="act ghost" data-scn="partial">partial (skip demos)</button>
+      <button class="act ghost" data-scn="conflict">⚠ conflict demo</button>
+      <button class="act ghost" data-scn="fault">🔁 retry (lock)</button>
+      <button class="act ghost" data-scn="permission">⛔ permission (SU53)</button>
+      <button class="act ghost" data-scn="unknown">❓ unknown error</button>
+      <span id="scnLabel" style="margin-left:8px;color:#52637a"></span>
+    </p>
+  </div>
+  <div class="card"><h2>Error Knowledge Base (§7.2)</h2>
+    <div id="kbBox">loading…</div>
+  </div>
+  <div class="card"><h2>Run history</h2>
+    <div id="runHistory">loading…</div>
+  </div>
+</section>
+
+<!-- ================= TEMPLATE ================= -->
+<section id="view-template" class="hidden">
+  <div class="card">
+    <h2>Template files</h2>
+    <div class="row">
+      <label>Customer variables</label>
+      <select id="selVars"></select>
+      <label>Config steps</label>
+      <select id="selSteps"></select>
+      <button class="act" id="btnLoad">Load &amp; validate</button>
+    </div>
+    <div id="schemaResult" style="margin-top:10px"></div>
+  </div>
+  <div id="templateBody"></div>
+</section>
+
+<!-- ================= PLAN ================= -->
+<section id="view-plan" class="hidden">
+  <div class="card">
+    <h2>Plan mode (read-only diff)</h2>
+    <div class="row">
+      <button class="act" id="btnPlan">⚙ Generate Plan</button>
+      <span id="planRunId" class="mono" style="color:#52637a"></span>
+    </div>
+    <div id="planSummary" class="kpi" style="margin-top:12px"></div>
+    <div id="planItems"></div>
+  </div>
+  <div class="card">
+    <h2>Dependency graph</h2>
+    <div class="depbox" id="depGraph"></div>
+  </div>
+  <div class="card hidden" id="applyCard">
+    <h2>Apply gate (mock simulation)</h2>
+    <div id="approvalList"></div>
+    <div class="approve-row" style="background:#eaf6ee;border-color:#b5dfc3">
+      <input type="checkbox" id="chkConsent"/>
+      <span>I understand this runs against the <b>in-process mock SAP only</b> (no real system, no real DB).</span>
+    </div>
+    <div class="row">
+      <button class="act green" id="btnApply" disabled>▶ Run Apply (MOCK)</button>
+      <span id="applyErr" class="bad"></span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= RUN ================= -->
+<section id="view-run" class="hidden">
+  <div class="card">
+    <h2>Live execution <span id="runTitle" style="color:#52637a;font-weight:400;font-size:12px"></span></h2>
+    <div class="kpi" id="runKpi"></div>
+    <div class="grid2">
+      <div>
+        <div class="screenbox" id="screenBox">
+          <div class="screenbar"><span id="scrTitle">—</span><span id="scrTcode"></span><span style="flex:1"></span><span id="scrMeta"></span></div>
+          <div id="scrFields" style="padding:6px 0"></div>
+          <div class="sbuttons" id="scrButtons"></div>
+          <div class="sstatus" id="scrStatus" style="border-top-color:#64748b"></div>
+        </div>
+        <div style="margin-top:8px"><b>Steps</b><div class="chips" id="stepChips" style="margin-top:6px"></div></div>
+      </div>
+      <div>
+        <b>Event log</b>
+        <div id="log" style="height:280px"></div>
+        <div style="margin-top:8px"><b>Verify results</b><div id="verifyBox"></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Screenshot evidence (SVG)</h2>
+    <div id="evidenceStrip" style="display:flex;flex-wrap:wrap">—</div>
+  </div>
+</section>
+
+<!-- ================= REPORT ================= -->
+<section id="view-report" class="hidden">
+  <div class="card">
+    <div class="row">
+      <h2 style="margin:0">Execution report</h2><span style="flex:1"></span>
+      <select id="selReport"></select>
+      <button class="act ghost" id="btnRefreshReport">⟳</button>
+    </div>
+    <div id="reportMarkdown" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<footer>SAP GUI Configuration Automation · Phase 1 (Plan + Mock apply) · never touches a real SAP system from this page · <span id="footTemplates"></span></footer>
+</main>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+let META=null, currentRun=null, currentPlan=null, pollTimer=null, pollLast=0;
+
+async function jget(u){const r=await fetch(u);return r.json()}
+async function jpost(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});const j=await r.json();if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),3200)}
+
+document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));
+function showView(v){
+  document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+  document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));
+  $("#view-"+v).classList.remove("hidden");
+  if(v==="report")refreshRuns();
+  if(v==="overview")loadHistory();
+}
+
+/* ---------------- meta / scenario ---------------- */
+async function init(){
+  META=await jget("/api/meta");
+  $("#metaVersion").textContent="v"+META.version+" · adapter "+META.adapter;
+  $("#footTemplates").textContent="templates: "+META.templates.join(", ");
+  const vs=$("#selVars"),ss=$("#selSteps");
+  META.templates.forEach(f=>{const o1=document.createElement("option");o1.value=f;o1.textContent=f;vs.appendChild(o1);const o2=document.createElement("option");o2.value=f;o2.textContent=f;ss.appendChild(o2);});
+  vs.value="example_customer_vars.yaml";ss.value="example_config_steps.yaml";
+  $("#btnScenario").textContent="🔄 clean";
+  $("#scnLabel").textContent="scenario: "+META.scenario;
+  loadHistory();loadKB();
+}
+async function loadKB(){
+  try{
+    const kb=await jget("/api/kb");
+    const pen=kb.pending||[];
+    let h=`<div style="display:flex;gap:18px;flex-wrap:wrap">`;
+    h+=`<div><b>pending review</b>: ${pen.length} (auto_fix_allowed=false until approved)</div>`;
+    h+=`<div><b>rules in use</b>: ${Object.keys(kb.stats||{}).length}</div></div>`;
+    if(pen.length)h+=`<table style="margin-top:8px"><tr><th>error_key</th><th>text</th><th>tcode</th><th>risk</th><th>auto_fix</th><th>run</th></tr>`+
+      pen.map(p=>`<tr><td class="mono">${esc(p.error_key)}</td><td>${esc(p.text)}</td><td class="mono">${esc(p.transaction)}</td>`+
+      `<td>${esc(p.risk_level)}</td><td>${p.auto_fix_allowed?"yes":"<span class='bad'>no</span>"}</td><td class="mono">${esc(p.run_id)}</td></tr>`).join("")+"</table>";
+    if(!pen.length)h+=`<div style="color:#1b7f3b;margin-top:6px">✔ no unknown errors pending — every message so far matched a whitelisted rule</div>`;
+    $("#kbBox").innerHTML=h;
+  }catch(e){$("#kbBox").innerHTML="<span class='bad'>"+esc(e.message)+"</span>"}
+}
+document.querySelectorAll("[data-scn]").forEach(b=>b.onclick=async()=>{
+  const j=await jpost("/api/scenario",{name:b.dataset.scn});
+  $("#scnLabel").textContent="scenario: "+j.scenario;
+  toast("scenario set: "+j.scenario+" (run plan again to re-diff)");
+});
+$("#btnScenario").onclick=async()=>{const j=await jpost("/api/scenario",{name:"clean"});toast("back to clean DEV");};
+
+/* ---------------- template / schema ---------------- */
+let bundle=null;
+$("#btnLoad").onclick=async()=>{
+  $("#schemaResult").innerHTML="validating…";
+  try{
+    const meta=await jpost("/api/validate-template",{vars:$("#selVars").value,steps:$("#selSteps").value});
+    // NOTE: server validates inside /api/plan; keep a local summary here
+    bundle={vars:$("#selVars").value,steps:$("#selSteps").value,structure:meta.structure};
+    $("#schemaResult").innerHTML="<span class='ok'>✔ template files selected: "+meta.structure.template_id+" v"+meta.structure.template_version+"</span> · run <b>Generate Plan</b> to see the full schema diff";
+    renderTemplate(meta.structure);
+    showView("template");
+  }catch(e){$("#schemaResult").innerHTML="<span class='bad'>✘ "+esc(e.message)+"</span>"}
+};
+function renderTemplate(s){
+  const tgt=s.target;
+  let h=`<div class="grid2"><div class="card"><h2>Template structure</h2>
+   <table><tr><th>field</th><th>value</th></tr>
+   <tr><td>template_id</td><td class="mono">${esc(s.template_id)}</td></tr>
+   <tr><td>template_version</td><td class="mono">${esc(s.template_version)}</td></tr>
+   <tr><td>customer</td><td>${esc(s.customer||"-")}</td></tr>
+   <tr><td>target</td><td class="mono">${esc(tgt.environment+" / "+tgt.sap_system+" / client "+tgt.client)}</td></tr></table>
+   <p style="margin:12px 0 4px"><b>Customer variables</b></p><div class="chips">
+   ${Object.entries(s.variables||{}).map(([k,v])=>`<span class="chip"><b>${esc(k)}</b> = ${esc(v)}</span>`).join("")}</div></div>
+   <div class="card"><h2>Schema &amp; policy</h2>
+   <div class="code">${esc(JSON.stringify(s.validation,null,1))}</div></div></div>`;
+  h+=`<div class="card"><h2>Config items (${s.items.length})</h2><table>
+   <tr><th>id</th><th>kind</th><th>tcode</th><th>depends_on</th><th>on_existing</th><th>human_approval</th><th>params</th></tr>`;
+  for(const it of s.items){
+    h+=`<tr><td class="mono">${esc(it.id)}</td><td>${esc(it.kind)}</td><td class="mono">${esc(it.transaction||"-")}</td>
+     <td>${(it.depends_on||[]).map(d=>`<span class="chip">${esc(d)}</span>`).join(" ")||"<span class='lvl'>—</span>"}</td>
+     <td>${esc(it.on_existing||"skip_if_match")}</td><td>${it.human_approval?"<span class='bad'>yes</span>":"no"}</td>
+     <td class="mono" style="font-size:11px">${esc(JSON.stringify(it.params))}</td></tr>`;
+  }
+  h+="</table></div>";
+  $("#templateBody").innerHTML=h;
+}
+
+/* ---------------- plan ---------------- */
+$("#btnPlan").onclick=async()=>{
+  const vars=$("#selVars").value, steps=$("#selSteps").value;
+  try{
+    const r=await jpost("/api/plan",{vars,steps});
+    currentRun=r.run_id; $("#planRunId").textContent="run: "+currentRun;
+    await loadPlan(currentRun); showView("plan");
+  }catch(e){toast("✘ "+e.message);console.error(e)}
+};
+async function loadPlan(runId){
+  const p=await jget("/api/runs/"+runId+"/plan");
+  currentPlan=p;
+  const sum={};p.items.forEach(i=>sum[i.status]=(sum[i.status]||0)+1);
+  $("#planSummary").innerHTML=Object.entries(sum).map(([k,n])=>`<div class="box"><div class="n" style="color:${col(k)}">${n}</div><div class="l">${k}</div></div>`).join("");
+  const order=["CREATE","UPDATE","SKIP","CONFLICT","BLOCKED","ERROR"];
+  const rows=p.items.slice().sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||a.seq-b.seq);
+  let h=`<table><tr><th>#</th><th>status</th><th>item</th><th>kind / tcode</th><th>reason</th><th>needs approval</th></tr>`;
+  const gated=[];
+  rows.forEach(i=>{
+    h+=`<tr><td>${i.seq}</td><td><span class="st ${i.status}">${i.status}</span></td>
+     <td class="mono">${esc(i.item_id)}<div style="color:#52637a;font-size:11px">${esc(i.title)}</div></td>
+     <td class="mono">${esc(i.kind)}${i.transaction?" · "+esc(i.transaction):""}</td>
+     <td style="color:#52637a">${esc(i.reason)}</td>
+     <td>${i.needs_approval?"<span class='bad'>required</span>":"—"}</td></tr>`;
+    if(i.needs_approval||["CONFLICT","UPDATE"].includes(i.status))gated.push(i);
+  });
+  h+="</table>";
+  $("#planItems").innerHTML=h;
+  // dependency graph
+  const levels=layers(p.items);
+  let gh="";
+  levels.forEach((lvl,li)=>{gh+=`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:6px 0">`+lvl.map(id=>{
+      const it=p.items.find(x=>x.item_id===id);
+      return `<span class="depnode" style="border-color:${col(it.status)};color:${col(it.status)}">${esc(id)}<span style="margin-left:6px;font-size:10px;color:#7a8ba0">${it.status}</span></span>`;
+    }).join("")+`</div>`;});
+  gh+=`<div class="deparrow">▼ execution order (topological)</div>`;
+  $("#depGraph").innerHTML=gh;
+  // approval UI
+  $("#approvalList").innerHTML=gated.length?gated.map(g=>`
+     <div class="approve-row"><input type="checkbox" class="chkAppr" value="${esc(g.item_id)}"/>
+     <div><b class="mono">${esc(g.item_id)}</b> — ${esc(g.status)}: ${esc(g.reason)}
+     <div style="color:#8a6d1a;font-size:12px">Desired: ${esc(JSON.stringify(g.desired))}<br/>Current: ${esc(JSON.stringify(g.current))}</div></div></div>`).join("")
+     :"<div style='color:#52637a'>no gated items — all steps are safe/skip/create.</div>";
+  $("#applyCard").classList.remove("hidden");
+  $("#btnApply").disabled=!$("#chkConsent").checked;
+}
+function layers(items){
+  // longest-path layering from depends_on
+  const lvl={};
+  const by={};items.forEach(i=>by[i.item_id]=i.depends_on||[]);
+  const depth=id=>{if(lvl[id]!==undefined)return lvl[id];let d=0;(by[id]||[]).forEach(x=>d=Math.max(d,depth(x)+1));return lvl[id]=d;};
+  items.forEach(i=>depth(i.item_id));
+  const out=[];items.forEach(i=>{(out[lvl[i.item_id]]=out[lvl[i.item_id]]||[]).push(i.item_id)});
+  return out;
+}
+function col(s){return {CREATE:"#1d7a8a",UPDATE:"#0e6b8a",SKIP:"#64748b",CONFLICT:"#c0392b",BLOCKED:"#6d3b9e",ERROR:"#b91c1c",SUCCESS:"#1b7f3b",RUNNING:"#2456a6",RETRYING:"#b7791f",FAILED:"#c0392b",MANUAL:"#7c3aed",SKIPPED:"#64748b"}[s]||"#64748b"}
+$("#chkConsent").onchange=()=>{const gatedOk=document.querySelectorAll(".chkAppr").length===0||[...document.querySelectorAll(".chkAppr")].some(c=>c.checked);$("#btnApply").disabled=!($("#chkConsent").checked);};
+function gatherApprovals(){return [...document.querySelectorAll(".chkAppr:checked")].map(c=>c.value)}
+
+/* ---------------- apply / run ---------------- */
+$("#btnApply").onclick=async()=>{
+  if(!currentRun)return toast("generate a plan first");
+  const approvals=gatherApprovals();
+  showView("run");startRunView(currentRun);
+  $("#runTitle").textContent="· run "+currentRun;
+  try{
+    // poll events while POST runs in background
+    const p=startPolling(currentRun);
+    const res=await jpost("/api/apply",{run:currentRun,approvals,consent:$("#chkConsent").checked});
+    await p; stopPolling();
+    renderSteps(res.steps,res.stats);
+    renderEvidence(res.evidence||[]);
+    toast("apply finished"); loadKB();
+  }catch(e){stopPolling();toast("✘ "+e.message);console.error(e);}
+  refreshRuns();
+};
+function startRunView(run){pollLast=0;["stepChips","verifyBox"].forEach(id=>$("#"+id).innerHTML="");$("#evidenceStrip").innerHTML="—";$("#log").textContent="";}
+async function startPolling(run){
+  let stop=false;
+  pollTimer=setInterval(async()=>{
+    try{const d=await jget(`/api/runs/${run}/events?after=${pollLast}`);
+      if(d.events.length){d.events.forEach(handleEvent);pollLast=d.last;}
+    }catch(e){}
+  },400);
+  return new Promise(r=>setTimeout(r,300));
+}
+function stopPolling(){clearInterval(pollTimer)}
+function handleEvent(e){
+  const pl=e.payload||{};
+  if(e.type==="log"){
+    const cls=pl.level==="error"?"log-err":pl.level==="warn"?"warn":"";
+    appendLog(`[${pl.level||"info"}] ${pl.msg||""}`,cls);
+  }else if(e.type==="screen"){
+    renderScreen(pl);
+  }else if(e.type==="message"){
+    appendLog("SAP: "+pl.text+" ["+pl.cls+"]",pl.retryable?"warn":pl.cls==="error"?"log-err":pl.cls==="success"?"log-ok":"");
+  }else if(e.type==="gate"){
+    appendLog("⛔ human gate: "+pl.item+" ("+pl.status+") "+pl.reason,"warn");
+  }else if(e.type==="apply"){
+    if(pl.started)appendLog("▶ apply started (adapter "+pl.adapter+", approvals="+JSON.stringify(pl.approvals)+")","log-ok");
+    if(pl.finished)appendLog("■ apply finished","log-ok");
+  }else if(e.type==="verify"){
+    const ok=pl.ok;
+    upsertChip(e.step, ok?"SUCCESS":"FAILED", ok);
+    let h=`<div style="margin:4px 0;padding:6px 9px;border-radius:7px;background:${ok?"#eaf6ee":"#fdeeee"};border:1px solid ${ok?"#b5dfc3":"#f2c1bb"}">
+      <b>${esc(pl.item)}</b> → read-back ${ok?"✔ MATCH":"✘ MISMATCH"}
+      ${(pl.results||[]).filter(r=>!r.ok).map(r=>`<div style="font-size:12px"> ${esc(r.column)}: ${esc(r.detail)}</div>`).join("")}</div>`;
+    const vb=$("#verifyBox");vb.insertAdjacentHTML("beforeend",h);vb.scrollTop=vb.scrollHeight;
+  }else if(e.type==="error_classify"){
+    upsertChip(e.step,"MANUAL",false);
+    appendLog(`⚙ §6 classify ${pl.item}: ${pl.kind} · rule ${pl.key} · action=${pl.action} (risk ${pl.risk})`,
+      ["PERMISSION","BUSINESS_CONFLICT","UNKNOWN"].includes(pl.kind)?"log-err":"warn");
+  }else if(e.type==="record"){
+    upsertChip(e.step, pl.state, pl.verified);
+    if(pl.classification)appendLog(`§8 audit record ${pl.item}: ${pl.state} classification=${pl.classification} error_key=${pl.error_key||"-"} before=${JSON.stringify(pl.before)} after=${JSON.stringify(pl.after)}`,
+      pl.state==="SUCCESS"?"log-ok":"");
+  }else if(e.type==="block"){
+    upsertChip(e.step,"BLOCKED",false);
+    appendLog("⛔ blocked by upstream: "+pl.deps.join(","),"log-err");
+  }else if(e.type==="abort"){
+    appendLog("■ RUN ABORTED: "+pl.reason,"log-err");
+  }else if(e.type==="kill"){
+    appendLog("☠ KILL SWITCH engaged at step "+pl.item,"log-err");
+  }else if(e.type==="evidence"){
+    $("#evidenceStrip").innerHTML=$("#evidenceStrip").innerHTML==="—"?"":$("#evidenceStrip").innerHTML;
+    $("#evidenceStrip").insertAdjacentHTML("beforeend",`<div class="ev"><img src="/evidence/${currentRun}/${encodeURIComponent(pl.file.replace("evidence/",""))}" loading="lazy"/><div>${esc(pl.file)}</div></div>`);
+    const strip=$("#evidenceStrip");strip.scrollTop=strip.scrollHeight;
+  }
+}
+function appendLog(t,cls){const l=$("#log");const d=document.createElement("div");if(cls)d.className=cls;d.textContent=t;l.appendChild(d);while(l.children.length>300)l.removeChild(l.firstChild);l.scrollTop=l.scrollHeight}
+function upsertChip(stepId,state,verified){
+  const wrap=$("#stepChips");
+  let chip=[...wrap.children].find(c=>c.dataset.item===stepId);
+  if(!chip){chip=document.createElement("span");chip.className="chip";chip.dataset.item=stepId;wrap.appendChild(chip);}
+  chip.innerHTML=`<b style="color:${col(state)}">${state}</b> · ${esc(stepId)}${verified?" ✔":""}`;
+}
+function renderScreen(pl){
+  $("#scrTitle").textContent=pl.title||"SAP";$("#scrTcode").textContent="["+(pl.tcode||"")+"]";
+  $("#scrMeta").textContent=(pl.system||"")+" / "+(pl.client||"")+" / "+(pl.user||"");
+  $("#scrFields").innerHTML=(pl.fields||[]).map(f=>`
+    <div class="sfield"><label>${esc(f.label)}</label>
+    <div class="v ${f.key?"key":""}">${esc(f.value!==undefined?f.value:"")}${f.kind==="dropdown"?" ▾":""}</div></div>`).join("");
+  $("#scrButtons").textContent=(pl.buttons||[]).join("    ");
+  const sc=pl.status_class||"info";const st=$("#scrStatus");
+  st.style.borderTopColor=col(sc==="success"?"SUCCESS":sc==="error"?"FAILED":sc==="warning"?"RETRYING":"SKIP");
+  st.innerHTML="<b>"+esc(pl.status||"")+"</b>";
+}
+function renderSteps(steps,stats){
+  $("#runKpi").innerHTML=Object.entries(stats||{}).map(([k,n])=>`<div class="box"><div class="n" style="color:${col(k)}">${n}</div><div class="l">${k}</div></div>`).join("");
+  $("#stepChips").innerHTML=steps.map(s=>`<span class="chip"><b style="color:${col(s.state)}">${s.state}</b> · ${esc(s.item_id)}${s.verified?" ✔":""}</span>`).join("");
+}
+function renderEvidence(files){
+  if(!files.length)return;
+  $("#evidenceStrip").innerHTML=files.map(f=>`<div class="ev"><img src="/evidence/${currentRun}/${encodeURIComponent(f)}" loading="lazy"/><div>${esc(f)}</div></div>`).join("");
+}
+
+/* ---------------- report / history ---------------- */
+async function refreshRuns(){
+  const runs=await jget("/api/runs");
+  const sel=$("#selReport");const old=sel.value;
+  sel.innerHTML=runs.map(r=>`<option value="${r.run_id}">${r.run_id}</option>`).join("");
+  if(old&&runs.some(r=>r.run_id===old))sel.value=old;
+  $("#runHistory").innerHTML=runs.length?`<table><tr><th>run</th><th>template</th><th>created</th><th>plan</th><th>results</th></tr>`+
+    runs.map(r=>`<tr><td class="mono">${r.run_id}</td><td>${esc(r.template_id)} · ${esc(r.customer)}</td><td>${esc(r.created)}</td>
+    <td>${Object.entries(r.summary).map(([k,n])=>`<span class="st ${k}" style="margin-right:3px">${k} ${n}</span>`).join("")}</td>
+    <td>${(r.steps||[]).map(s=>`<span class="st ${s.state}">${s.state}</span>`).join(" ")}</td></tr>`).join("")+"</table>"
+    :"no runs yet — generate a plan";
+}
+$("#btnRefreshReport").onclick=()=>{if($("#selReport").value)loadReport($("#selReport").value)};
+$("#selReport").onchange=()=>loadReport($("#selReport").value);
+async function loadReport(run){
+  $("#reportMarkdown").innerHTML="loading…";
+  const j=await jget("/api/runs/"+run+"/report");
+  const md=j.markdown;
+  // naive markdown -> html for readability
+  let h="";
+  md.split("\n").forEach(line=>{
+    if(line.startsWith("# "))h+="<h2 style='margin:14px 0 6px'>"+esc(line.slice(2))+"</h2>";
+    else if(line.startsWith("|"))h+=line.replace(/^\||\|$/g,"")+"<br>";
+    else if(line.startsWith("- "))h+="<div style='color:#33465c'>• "+esc(line.slice(2))+"</div>";
+    else if(line.startsWith("```"))h+="";
+    else if(line.trim()==="")h+="";
+    else h+=esc(line)+"<br>";
+  });
+  $("#reportMarkdown").innerHTML=`<div class="code">${h}</div><div class="code" style="margin-top:10px">${esc(md)}</div>`;
+}
+async function loadHistory(){refreshRuns()}
+init();
+</script>
+</body>
+</html>
