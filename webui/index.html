@@ -1,25 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SAP Config Automation · Console (MOCK)</title>
+<title>SAP Config Automation · コンソール（MOCK）</title>
 <style>
   :root{
     --blue:#1e3a5f; --blue2:#2456a6; --bg:#f2f5f9; --card:#ffffff; --line:#dbe3ec;
     --green:#1b7f3b; --red:#c0392b; --amber:#b7791f; --grey:#64748b; --dark:#0f1c2e;
   }
   *{box-sizing:border-box}
-  body{margin:0;font:14px/1.5 -apple-system,"Segoe UI","Hiragino Sans","PingFang SC",sans-serif;background:var(--bg);color:var(--dark)}
-  header{background:var(--blue);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+  body{margin:0;font:14px/1.6 -apple-system,"Segoe UI","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic UI","PingFang SC",sans-serif;background:var(--bg);color:var(--dark)}
+  header{background:var(--blue);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:5}
   header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
-  .pill{font-size:11px;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,.16)}
+  .pill{font-size:11px;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,.16);white-space:nowrap}
   .pill.mock{background:#0e6b3a}
   .pill.warn{background:#8a5a00}
   .grow{flex:1}
-  #modeBadge{font-size:11px;padding:3px 10px;border-radius:6px}
+  #modeBadge{font-size:11px;padding:3px 10px;border-radius:6px;white-space:nowrap}
   .safe{background:#0e6b3a}.danger{background:#8f1d12}
-  .wrap{display:grid;grid-template-columns:190px 1fr;min-height:calc(100vh - 46px)}
+  .wrap{display:grid;grid-template-columns:196px 1fr;min-height:calc(100vh - 46px)}
   nav{background:#fafcff;border-right:1px solid var(--line);padding:14px 8px}
   nav button{display:block;width:100%;text-align:left;padding:9px 12px;margin:2px 0;border:0;background:transparent;
     border-radius:8px;cursor:pointer;font-size:13px;color:#33465c}
@@ -33,6 +33,7 @@
   button.act:disabled{background:#b7c3d4;cursor:not-allowed}
   button.act.green{background:var(--green)}
   button.act.ghost{background:#fff;color:var(--blue2);border:1px solid var(--blue2)}
+  button.act.mini{font-size:12px;padding:4px 10px}
   select,input[type=text]{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -46,7 +47,7 @@
   .st.CONFLICT{background:var(--red)}.st.BLOCKED{background:#6d3b9e}.st.ERROR{background:#b91c1c}
   .st.SUCCESS{background:var(--green)}.st.RUNNING{background:var(--blue2)}.st.RETRYING{background:var(--amber)}
   .st.FAILED{background:var(--red)}.st.MANUAL{background:#7c3aed}.st.PENDING{background:#94a3b8}
-  .st.SKIPPED{background:#64748b}.st.BLOCKED{background:#6d3b9e}
+  .st.SKIPPED{background:#64748b}.st.ABORTED{background:#7f1d1d}
   .mono{font-family:Menlo,Consolas,monospace;font-size:12px}
   #log{height:250px;overflow:auto;background:#0f1c2e;color:#cfe3ff;border-radius:10px;padding:10px;font:12px/1.55 Menlo,Consolas,monospace;white-space:pre-wrap}
   #log .warn{color:#ffd98a}.log-err{color:#ff9d94}.log-ok{color:#8fe3a8}
@@ -73,96 +74,127 @@
   .hidden{display:none}
   #toast{position:fixed;bottom:20px;right:20px;background:#0f1c2e;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:99;opacity:0;transition:.3s;max-width:420px}
   #toast.show{opacity:1}
-  .code{border:1px solid var(--line);background:#0f1c2e;color:#d9e8ff;border-radius:8px;padding:12px;font:12px Menlo,Consolas,monospace;white-space:pre-wrap;overflow:auto;max-height:420px}
+  .code{border:1px solid var(--line);background:#0f1c2e;color:#d9e8ff;border-radius:8px;padding:12px;font:12px/1.55 Menlo,Consolas,monospace;white-space:pre-wrap;overflow:auto;max-height:420px}
+  .code.bright{background:#10233c}
   .tree .lvl{color:#5c6f86}
   .flow{display:flex;align-items:center;gap:8px;font-size:12px;color:#52637a;flex-wrap:wrap}
   .flow .s{background:#eef3fa;padding:3px 10px;border-radius:99px;border:1px solid var(--line)}
   .flow .s.done{background:#e3f5e9;border-color:#a8d9b8;color:#14602f}
   footer{color:#8aa0b8;font-size:11px;padding:8px 2px}
+
+  /* ===== 構成図 view ===== */
+  .pipewrap{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+  .pipemain{flex:1 1 540px;min-width:400px}
+  .pipeside{flex:0 1 330px;min-width:280px}
+  .pnode{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue2);border-radius:10px;
+    padding:9px 13px;margin:0}
+  .pnode.in{border-left-color:#2e7d32}
+  .pnode.out{border-left-color:#8a5a00}
+  .pnode .pfile{font:600 12.5px Menlo,Consolas,monospace;color:var(--blue);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pnode .pfn{font-size:13px;color:#33465c;margin-top:2px}
+  .pnode .ptag{font-size:10.5px;background:#eef3fa;border:1px solid var(--line);color:#52637a;
+    border-radius:99px;padding:0 8px;margin-left:auto;white-space:nowrap}
+  .parrow{text-align:center;color:#9aa9ba;font-size:15px;line-height:1;padding:3px 0}
+  .psub{font-size:11.5px;color:var(--grey);margin-top:2px}
+  .pcard{background:#fff;border:1px dashed #9fb0c2;border-radius:10px;padding:10px 13px;margin-bottom:10px}
+  .pcard b{color:var(--blue);font-size:12.5px}
+  .pcard .pfn{font-size:12.5px;color:#33465c;margin-top:2px}
+  .legend .chip{background:#fff}
+
+  /* ===== 使い方 view ===== */
+  .guide h3{color:var(--blue);font-size:14.5px;margin:18px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+  .guide .q{font-weight:700;color:#7a4d00;margin:14px 0 4px}
+  .guide .a{color:#33465c;margin:0 0 6px}
+  .guide ol,.guide ul{margin:6px 0;padding-left:22px;color:#33465c}
+  .guide li{margin:3px 0}
+  .gcode{display:inline-block;background:#eef3fa;border:1px solid var(--line);border-radius:5px;
+    padding:0 7px;font:12px Menlo,Consolas,monospace;color:#2456a6}
+  .gfile{font:600 12.5px Menlo,Consolas,monospace;color:#2456a6}
+  .kbd{background:#0f1c2e;color:#cfe3ff;border-radius:5px;padding:1px 7px;font:12px Menlo,monospace}
+  .scnbtn{display:inline-flex;align-items:center;gap:6px;margin:3px}
 </style>
 </head>
 <body>
 <header>
   <h1>🖥️ SAP Config Automation</h1>
-  <span class="pill mock">adapter: MOCK SAP GUI</span>
-  <span id="modeBadge" class="safe">PLAN-ONLY</span>
+  <span class="pill mock" data-i18n="hd.adapter">adapter: MOCK SAP GUI</span>
+  <span id="modeBadge" class="safe" data-i18n="hd.mode">PLAN-ONLY</span>
   <div class="grow"></div>
   <span class="pill" id="metaVersion">v?</span>
+  <button class="act ghost mini" id="btnLang">日本語 / EN</button>
   <button class="act ghost" id="btnScenario">🔄 clean</button>
 </header>
 <div class="wrap">
 <nav id="nav">
-  <button data-view="overview" class="on">1 · Overview</button>
-  <button data-view="template">2 · Template &amp; Schema</button>
-  <button data-view="plan">3 · Plan (diff)</button>
-  <button data-view="run">4 · Apply (mock, gated)</button>
-  <button data-view="report">5 · Report</button>
+  <button data-view="overview" class="on" data-i18n="nav.overview">1 · Overview</button>
+  <button data-view="structure" data-i18n="nav.structure">2 · Structure</button>
+  <button data-view="template" data-i18n="nav.template">3 · Template &amp; Schema</button>
+  <button data-view="plan" data-i18n="nav.plan">4 · Plan (diff)</button>
+  <button data-view="run" data-i18n="nav.run">5 · Apply (mock, gated)</button>
+  <button data-view="report" data-i18n="nav.report">6 · Report</button>
+  <button data-view="guide" data-i18n="nav.guide">7 · Guide</button>
 </nav>
 <main>
 
 <!-- ================= OVERVIEW ================= -->
 <section id="view-overview">
   <div class="card">
-    <h2>What this is</h2>
-    <p>Configuration-as-Code pipeline for standard SAP customizing. Reads a business Template
-       (customer variables + config steps), validates it against JSON Schema, resolves
-       dependencies, diffs against current SAP state (<b>Plan mode</b>) and — only after your
-       per-item approval — executes with a state machine: retry → read-back verify → human queue.</p>
+    <h2 data-i18n="ov.what">What this is</h2>
+    <p data-i18n-h="ov.intro"></p>
     <div class="kpi">
-      <div class="box"><div class="n">5</div><div class="l">config steps (OB13/OB29/OBY6/OX02/OX10)</div></div>
-      <div class="box"><div class="n">2</div><div class="l">template files (vars + steps)</div></div>
-      <div class="box"><div class="n">0</div><div class="l">real SAP connections</div></div>
-      <div class="box"><div class="n">✓</div><div class="l">schema / DAG / plan / retry / verify / evidence</div></div>
+      <div class="box"><div class="n">5</div><div class="l" data-i18n="ov.kpi.steps">config steps (OB13/OB29/OBY6/OX02/OX10)</div></div>
+      <div class="box"><div class="n">2</div><div class="l" data-i18n="ov.kpi.tpl">template files (vars + steps)</div></div>
+      <div class="box"><div class="n">0</div><div class="l" data-i18n="ov.kpi.conn">real SAP connections</div></div>
+      <div class="box"><div class="n">✓</div><div class="l" data-i18n="ov.kpi.cap">schema / DAG / plan / retry / verify / evidence</div></div>
     </div>
     <div class="grid2">
       <div>
-        <b>Guarantees (design doc)</b>
+        <b data-i18n="ov.guar.h">Guarantees (design doc)</b>
         <ul style="margin:6px 0 0;padding-left:18px;color:#33465c">
-          <li>Never connects to a real system from this machine.</li>
-          <li>No direct SAP DB writes anywhere in the code base.</li>
-          <li>Plan mode is read-only; Apply runs only against the built-in <b>mock SAP</b>.</li>
-          <li>Every step: screen actions + status message + screenshot evidence + read-back compare.</li>
-          <li>Overwrite / human_approval steps go to the human queue unless you tick them.</li>
+          <li data-i18n="ov.guar.1">Never connects to a real system from this machine.</li>
+          <li data-i18n="ov.guar.2">No direct SAP DB writes anywhere in the code base.</li>
+          <li data-i18n-h="ov.guar.3">Plan mode is read-only; Apply runs only against the built-in <b>mock SAP</b>.</li>
+          <li data-i18n="ov.guar.4">Every step: screen actions + status message + screenshot evidence + read-back compare.</li>
+          <li data-i18n="ov.guar.5">Overwrite / human_approval steps go to the human queue unless you tick them.</li>
         </ul>
       </div>
       <div>
-        <b>Try it (60 seconds)</b>
-        <ol style="margin:6px 0 0;padding-left:18px;color:#33465c">
-          <li><span class="flow"><span class="s">Overview</span><span class="deparrow">→</span><span class="s">2 Template</span></span> inspect structure &amp; schema</li>
-          <li>Go to <b>3 Plan</b> → <span class="act" style="padding:2px 8px">Generate Plan</span></li>
-          <li>Approve gated items, tick consent → <span class="act green" style="padding:2px 8px">Run Apply (MOCK)</span></li>
-          <li>Watch the simulated SAP GUI, then open <b>5 Report</b></li>
-        </ol>
+        <b data-i18n="ov.try.h">Try it (60 seconds)</b>
+        <ol style="margin:6px 0 0;padding-left:18px;color:#33465c" id="tryList"></ol>
       </div>
     </div>
-    <p style="margin-bottom:0"><b>Scenario:</b>
-      <button class="act ghost" data-scn="clean">🧹 clean DEV</button>
-      <button class="act ghost" data-scn="partial">partial (skip demos)</button>
-      <button class="act ghost" data-scn="conflict">⚠ conflict demo</button>
-      <button class="act ghost" data-scn="fault">🔁 retry (lock)</button>
-      <button class="act ghost" data-scn="permission">⛔ permission (SU53)</button>
-      <button class="act ghost" data-scn="unknown">❓ unknown error</button>
+    <p style="margin-bottom:0"><b data-i18n="ov.scn">Scenario:</b>
+      <span id="scnButtons"></span>
       <span id="scnLabel" style="margin-left:8px;color:#52637a"></span>
     </p>
   </div>
-  <div class="card"><h2>Error Knowledge Base (§7.2)</h2>
+  <div class="card"><h2 data-i18n="ov.kb.h">Error Knowledge Base (§7.2)</h2>
     <div id="kbBox">loading…</div>
   </div>
-  <div class="card"><h2>Run history</h2>
+  <div class="card"><h2 data-i18n="ov.hist.h">Run history</h2>
     <div id="runHistory">loading…</div>
+  </div>
+</section>
+
+<!-- ================= STRUCTURE (構成図) ================= -->
+<section id="view-structure" class="hidden">
+  <div class="card">
+    <h2 data-i18n="st.h">Pipeline structure</h2>
+    <p style="color:#33465c;margin:0 0 10px" data-i18n-h="st.sub">Configuration-as-Code の全体像。上から下へデータが流れ、右側の支援系がエラー分類・停止・検証を担います。Phase 1 は Mock SAP のみ（実 SAP には一切接続しません）。</p>
+    <div id="structureBody" class="pipewrap"></div>
   </div>
 </section>
 
 <!-- ================= TEMPLATE ================= -->
 <section id="view-template" class="hidden">
   <div class="card">
-    <h2>Template files</h2>
+    <h2 data-i18n="tp.h">Template files</h2>
     <div class="row">
-      <label>Customer variables</label>
+      <label data-i18n="tp.vars">Customer variables</label>
       <select id="selVars"></select>
-      <label>Config steps</label>
+      <label data-i18n="tp.steps">Config steps</label>
       <select id="selSteps"></select>
-      <button class="act" id="btnLoad">Load &amp; validate</button>
+      <button class="act" id="btnLoad" data-i18n="tp.load">Load &amp; validate</button>
     </div>
     <div id="schemaResult" style="margin-top:10px"></div>
   </div>
@@ -172,27 +204,27 @@
 <!-- ================= PLAN ================= -->
 <section id="view-plan" class="hidden">
   <div class="card">
-    <h2>Plan mode (read-only diff)</h2>
+    <h2 data-i18n="pl.h">Plan mode (read-only diff)</h2>
     <div class="row">
-      <button class="act" id="btnPlan">⚙ Generate Plan</button>
+      <button class="act" id="btnPlan" data-i18n="pl.gen">⚙ Generate Plan</button>
       <span id="planRunId" class="mono" style="color:#52637a"></span>
     </div>
     <div id="planSummary" class="kpi" style="margin-top:12px"></div>
     <div id="planItems"></div>
   </div>
   <div class="card">
-    <h2>Dependency graph</h2>
+    <h2 data-i18n="pl.dep">Dependency graph</h2>
     <div class="depbox" id="depGraph"></div>
   </div>
   <div class="card hidden" id="applyCard">
-    <h2>Apply gate (mock simulation)</h2>
+    <h2 data-i18n="pl.gate">Apply gate (mock simulation)</h2>
     <div id="approvalList"></div>
     <div class="approve-row" style="background:#eaf6ee;border-color:#b5dfc3">
       <input type="checkbox" id="chkConsent"/>
-      <span>I understand this runs against the <b>in-process mock SAP only</b> (no real system, no real DB).</span>
+      <span data-i18n-h="pl.consent"></span>
     </div>
     <div class="row">
-      <button class="act green" id="btnApply" disabled>▶ Run Apply (MOCK)</button>
+      <button class="act green" id="btnApply" disabled data-i18n="pl.applybtn">▶ Run Apply (MOCK)</button>
       <span id="applyErr" class="bad"></span>
     </div>
   </div>
@@ -201,7 +233,7 @@
 <!-- ================= RUN ================= -->
 <section id="view-run" class="hidden">
   <div class="card">
-    <h2>Live execution <span id="runTitle" style="color:#52637a;font-weight:400;font-size:12px"></span></h2>
+    <h2><span data-i18n="run.h">Live execution</span> <span id="runTitle" style="color:#52637a;font-weight:400;font-size:12px"></span></h2>
     <div class="kpi" id="runKpi"></div>
     <div class="grid2">
       <div>
@@ -211,17 +243,17 @@
           <div class="sbuttons" id="scrButtons"></div>
           <div class="sstatus" id="scrStatus" style="border-top-color:#64748b"></div>
         </div>
-        <div style="margin-top:8px"><b>Steps</b><div class="chips" id="stepChips" style="margin-top:6px"></div></div>
+        <div style="margin-top:8px"><b data-i18n="run.steps">Steps</b><div class="chips" id="stepChips" style="margin-top:6px"></div></div>
       </div>
       <div>
-        <b>Event log</b>
+        <b data-i18n="run.log">Event log</b>
         <div id="log" style="height:280px"></div>
-        <div style="margin-top:8px"><b>Verify results</b><div id="verifyBox"></div></div>
+        <div style="margin-top:8px"><b data-i18n="run.verify">Verify results</b><div id="verifyBox"></div></div>
       </div>
     </div>
   </div>
   <div class="card">
-    <h2>Screenshot evidence (SVG)</h2>
+    <h2 data-i18n="run.evidence">Screenshot evidence (SVG)</h2>
     <div id="evidenceStrip" style="display:flex;flex-wrap:wrap">—</div>
   </div>
 </section>
@@ -230,7 +262,7 @@
 <section id="view-report" class="hidden">
   <div class="card">
     <div class="row">
-      <h2 style="margin:0">Execution report</h2><span style="flex:1"></span>
+      <h2 style="margin:0" data-i18n="rp.h">Execution report</h2><span style="flex:1"></span>
       <select id="selReport"></select>
       <button class="act ghost" id="btnRefreshReport">⟳</button>
     </div>
@@ -238,7 +270,15 @@
   </div>
 </section>
 
-<footer>SAP GUI Configuration Automation · Phase 1 (Plan + Mock apply) · never touches a real SAP system from this page · <span id="footTemplates"></span></footer>
+<!-- ================= GUIDE (使い方) ================= -->
+<section id="view-guide" class="hidden">
+  <div class="card guide">
+    <h2 data-i18n="gd.h">使い方ガイド（使用方法）</h2>
+    <div id="guideBody"></div>
+  </div>
+</section>
+
+<footer>SAP GUI Configuration Automation · Phase 1 (Plan + Mock apply) · <span data-i18n="fp.safe">never touches a real SAP system from this page</span> · <span id="footTemplates"></span></footer>
 </main>
 </div>
 <div id="toast"></div>
@@ -246,12 +286,226 @@
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-let META=null, currentRun=null, currentPlan=null, pollTimer=null, pollLast=0;
+const lang = localStorage.getItem("sapcfg.lang") || "ja";
+
+/* ================= 辞書 (ja を既定、en は HTML 原文にフォールバック) ================= */
+const D = {
+  ja: {
+    "app.title": "SAP Config Automation · コンソール（MOCK）",
+    "hd.adapter": "アダプタ: MOCK SAP GUI",
+    "hd.mode": "PLAN-ONLY（承認まで適用なし）",
+    "hd.langbtn": "English",
+    "hd.clean": "🔄 clean に戻す",
+    "nav.overview": "1 · 概要",
+    "nav.structure": "2 · 構成図",
+    "nav.template": "3 · テンプレート & スキーマ",
+    "nav.plan": "4 · プラン (diff)",
+    "nav.run": "5 · 適用（Mock・承認制）",
+    "nav.report": "6 · レポート",
+    "nav.guide": "7 · 使い方",
+    "ov.what": "これは何？",
+    "ov.intro": "標準 SAP カスタマイズ（コンフィグ）向けの <b>Configuration-as-Code</b> パイプラインです。業務テンプレート（顧客変数 + 設定ステップ）を読み込み、JSON Schema で検証し、依存関係を解決した上で現在の SAP 状態との diff を取り（<b>プランモード</b>）——<b>各項目の承認後にのみ</b>、状態機械（リトライ → 読み戻し検証 → ヒューマンキュー）で実行します。",
+    "ov.kpi.steps": "設定ステップ (OB13/OB29/OBY6/OX02/OX10)",
+    "ov.kpi.tpl": "テンプレートファイル (vars + steps)",
+    "ov.kpi.conn": "実 SAP 接続",
+    "ov.kpi.cap": "schema / DAG / plan / retry / verify / evidence",
+    "ov.guar.h": "保証事項（設計書）",
+    "ov.guar.1": "このマシンから実システムには一切接続しません。",
+    "ov.guar.2": "コードベースのどこにも SAP テーブルへの直接 DB 書き込みはありません。",
+    "ov.guar.3": "プランモードは読み取り専用。Apply は内蔵の <b>mock SAP</b> に対してのみ実行されます。",
+    "ov.guar.4": "全ステップ：画面操作 + ステータスメッセージ + スクリーンショット証跡 + 読み戻し比較。",
+    "ov.guar.5": "上書き / human_approval 項目は、チェックしない限りヒューマンキュー行き。",
+    "ov.try.h": "60 秒で試す",
+    "ov.try.1": "左メニュー <b>3 テンプレート</b> → ファイルを選んで <b>Load & validate</b>",
+    "ov.try.2": "<b>4 プラン</b> →「プラン生成」で diff を確認",
+    "ov.try.3": "承認が必要な項目にチェック + 同意 →「▶ 適用実行（MOCK）」",
+    "ov.try.4": "疑似的な SAP GUI を観察 → <b>6 レポート</b> を開く",
+    "ov.scn": "シナリオ:",
+    "ov.scn.clean": "🧹 clean DEV",
+    "ov.scn.partial": "partial（skip デモ）",
+    "ov.scn.conflict": "⚠ 競合デモ",
+    "ov.scn.fault": "🔁 リトライ（ロック）",
+    "ov.scn.permission": "⛔ 権限エラー (SU53)",
+    "ov.scn.unknown": "❓ 未知エラー",
+    "ov.kb.h": "エラー知識ベース（§7.2）",
+    "ov.hist.h": "実行履歴",
+    "tp.structure": "テンプレート構造",
+    "tp.schema": "スキーマ & ポリシー",
+    "tp.items": "設定項目",
+    "rh.run": "実行ID", "rh.template": "テンプレート", "rh.created": "作成日時",
+    "rh.plan": "プラン", "rh.results": "結果",
+    "tbl.colDesired": "希望値", "tbl.colCurrent": "現在値",
+    "st.h": "パイプライン構成図",
+    "st.sub": "Configuration-as-Code の全体像。データは上から下へ流れ、右側の支援系がエラー分類・停止・検証を担います。<b>Phase 1 は Mock SAP のみ</b>（実 SAP には一切接続しません）。",
+    "tp.h": "テンプレートファイル",
+    "tp.vars": "顧客変数",
+    "tp.steps": "設定ステップ",
+    "tp.load": "読み込み & 検証",
+    "pl.h": "プランモード（読み取り専用 diff）",
+    "pl.gen": "⚙ プラン生成",
+    "pl.dep": "依存グラフ",
+    "pl.gate": "適用ゲート（Mock シミュレーション）",
+    "pl.consent": "これは <b>プロセス内 mock SAP のみ</b>に対する実行であることを理解しています（実システム・実 DB は対象外）。",
+    "pl.applybtn": "▶ 適用実行（MOCK）",
+    "run.h": "実行ライブ",
+    "run.steps": "ステップ",
+    "run.log": "イベントログ",
+    "run.verify": "検証（読み戻し）結果",
+    "run.evidence": "スクリーンショット証跡 (SVG)",
+    "rp.h": "実行レポート",
+    "gd.h": "使い方ガイド（使用方法）",
+    "fp.safe": "このページから実 SAP システムに触れることはありません",
+    // 動的メッセージ
+    "m.loading": "読み込み中…",
+    "m.validating": "検証中…",
+    "m.okSelected": "✔ テンプレートを選択しました: {tpl} v{ver} · <b>プラン生成</b>でスキーマ diff を確認",
+    "m.scnSet": "シナリオを設定: {scn}（プランを再生成して diff を取り直してください）",
+    "m.backClean": "clean DEV に戻しました",
+    "m.planFirst": "先にプランを生成してください",
+    "m.applyFinish": "適用が完了しました",
+    "m.noRuns": "まだ実行履歴がありません — プランを生成してください",
+    "m.noneGated": "ゲート対象なし — 全ステップが安全（skip/create）です",
+    "m.loadReport": "レポート読み込み中…",
+    "m.kbPending": "審査待ち",
+    "m.kbRules": "使用中ルール",
+    "m.kbClean": "✔ 未承認の未知エラーはありません — 全メッセージがホワイトリストのルールに一致",
+    "m.colNo": "いいえ",
+    "m.colYes": "はい",
+    "m.noGatedItems": "ゲート対象の項目はありません",
+    "m.approvalRequired": "要承認",
+    "m.consentCheck": "同意チェックが必要です",
+    "tbl.colId": "ID", "tbl.colKind": "種別", "tbl.colTcode": "トランザクション",
+    "tbl.colDepends": "依存元", "tbl.colOnExisting": "既存時", "tbl.colHuman": "要承認",
+    "tbl.colParams": "パラメータ", "tbl.colStatus": "ステータス", "tbl.colItem": "項目",
+    "tbl.colReason": "理由", "tbl.colApproval": "承認",
+    "m.field": "フィールド", "m.value": "値",
+  },
+  en: {
+    "app.title": "SAP Config Automation · Console (MOCK)",
+    "hd.adapter": "adapter: MOCK SAP GUI",
+    "hd.mode": "PLAN-ONLY",
+    "hd.langbtn": "日本語",
+    "hd.clean": "🔄 clean",
+    "nav.overview": "1 · Overview",
+    "nav.structure": "2 · Structure",
+    "nav.template": "3 · Template & Schema",
+    "nav.plan": "4 · Plan (diff)",
+    "nav.run": "5 · Apply (mock, gated)",
+    "nav.report": "6 · Report",
+    "nav.guide": "7 · Guide",
+    "ov.what": "What this is",
+    "ov.intro": "Configuration-as-Code pipeline for standard SAP customizing. Reads a business Template (customer variables + config steps), validates it against JSON Schema, resolves dependencies, diffs against current SAP state (<b>Plan mode</b>) and — only after your per-item approval — executes with a state machine: retry → read-back verify → human queue.",
+    "ov.kpi.steps": "config steps (OB13/OB29/OBY6/OX02/OX10)",
+    "ov.kpi.tpl": "template files (vars + steps)",
+    "ov.kpi.conn": "real SAP connections",
+    "ov.kpi.cap": "schema / DAG / plan / retry / verify / evidence",
+    "ov.guar.h": "Guarantees (design doc)",
+    "ov.guar.1": "Never connects to a real system from this machine.",
+    "ov.guar.2": "No direct SAP DB writes anywhere in the code base.",
+    "ov.guar.3": "Plan mode is read-only; Apply runs only against the built-in <b>mock SAP</b>.",
+    "ov.guar.4": "Every step: screen actions + status message + screenshot evidence + read-back compare.",
+    "ov.guar.5": "Overwrite / human_approval steps go to the human queue unless you tick them.",
+    "ov.try.h": "Try it (60 seconds)",
+    "ov.try.1": "Open <b>3 Template</b> → pick files → <b>Load & validate</b>",
+    "ov.try.2": "Go to <b>4 Plan</b> → <b>Generate Plan</b> for the diff",
+    "ov.try.3": "Tick approvals + consent → <b>▶ Run Apply (MOCK)</b>",
+    "ov.try.4": "Watch the simulated SAP GUI, then open <b>6 Report</b>",
+    "ov.scn": "Scenario:",
+    "ov.scn.clean": "🧹 clean DEV",
+    "ov.scn.partial": "partial (skip demos)",
+    "ov.scn.conflict": "⚠ conflict demo",
+    "ov.scn.fault": "🔁 retry (lock)",
+    "ov.scn.permission": "⛔ permission (SU53)",
+    "ov.scn.unknown": "❓ unknown error",
+    "ov.kb.h": "Error Knowledge Base (§7.2)",
+    "ov.hist.h": "Run history",
+    "tp.structure": "Template structure",
+    "tp.schema": "Schema & policy",
+    "tp.items": "Config items",
+    "rh.run": "run", "rh.template": "template", "rh.created": "created",
+    "rh.plan": "plan", "rh.results": "results",
+    "tbl.colDesired": "Desired", "tbl.colCurrent": "Current",
+    "st.h": "Pipeline structure",
+    "st.sub": "Configuration-as-Code at a glance. Data flows top-to-bottom; the support lane on the right handles error classification, kill switch and evidence. <b>Phase 1 is mock-only</b> — no real SAP is ever touched.",
+    "tp.h": "Template files",
+    "tp.vars": "Customer variables",
+    "tp.steps": "Config steps",
+    "tp.load": "Load & validate",
+    "pl.h": "Plan mode (read-only diff)",
+    "pl.gen": "⚙ Generate Plan",
+    "pl.dep": "Dependency graph",
+    "pl.gate": "Apply gate (mock simulation)",
+    "pl.consent": "I understand this runs against the <b>in-process mock SAP only</b> (no real system, no real DB).",
+    "pl.applybtn": "▶ Run Apply (MOCK)",
+    "run.h": "Live execution",
+    "run.steps": "Steps",
+    "run.log": "Event log",
+    "run.verify": "Verify results",
+    "run.evidence": "Screenshot evidence (SVG)",
+    "rp.h": "Execution report",
+    "gd.h": "Usage guide",
+    "fp.safe": "never touches a real SAP system from this page",
+    "m.loading": "loading…",
+    "m.validating": "validating…",
+    "m.okSelected": "✔ template files selected: {tpl} v{ver} · run <b>Generate Plan</b> to see the full schema diff",
+    "m.scnSet": "scenario set: {scn} (run plan again to re-diff)",
+    "m.backClean": "back to clean DEV",
+    "m.planFirst": "generate a plan first",
+    "m.applyFinish": "apply finished",
+    "m.noRuns": "no runs yet — generate a plan",
+    "m.noneGated": "no gated items — all steps are safe/skip/create.",
+    "m.loadReport": "loading…",
+    "m.kbPending": "pending review",
+    "m.kbRules": "rules in use",
+    "m.kbClean": "✔ no unknown errors pending — every message so far matched a whitelisted rule",
+    "m.colNo": "no", "m.colYes": "yes",
+    "m.noGatedItems": "no gated items",
+    "m.approvalRequired": "required",
+    "m.consentCheck": "consent is required",
+    "tbl.colId": "id", "tbl.colKind": "kind", "tbl.colTcode": "tcode",
+    "tbl.colDepends": "depends_on", "tbl.colOnExisting": "on_existing", "tbl.colHuman": "human_approval",
+    "tbl.colParams": "params", "tbl.colStatus": "status", "tbl.colItem": "item",
+    "tbl.colReason": "reason", "tbl.colApproval": "needs approval",
+    "m.field": "field", "m.value": "value",
+  }
+};
+function t(k){ const l=D[lang]; if(l && l[k]!=null) return l[k]; if(D.en[k]!=null) return D.en[k]; return k; }
+function th(k){ return t(k); } // innerHTML 可
+
+/* ===== Mock 画面ラベル（日本語） ===== */
+const SCR_JA = {
+  "Chart of accounts":"会計勘定表","Name":"名称","Description":"説明",
+  "Number of posting periods":"転記期間数","Company code":"会社コード",
+  "Company name":"会社名","Currency key":"通貨キー","Fiscal year variant":"会計年度バリアント",
+  "Country key":"国キー","City":"市区町村","Language key":"言語キー",
+  "Company":"会社","Plant":"プラント",
+};
+const SCR_TITLE_JA = {
+  "Edit Chart of Accounts List":"会計勘定表リストの編集",
+  "Maintain Fiscal Year Variant":"会計年度バリアントの保守",
+  "Global Parameters for Company Code":"会社コードのグローバルパラメータ",
+  "Assign Company Code to Company":"会社コードを会社へ割当",
+  "Define Plant":"プラント定義",
+};
+function scr(s){ return lang==="ja" ? (SCR_JA[s]||s) : s; }
+function scrT(s){ return lang==="ja" ? (SCR_TITLE_JA[s]||s) : s; }
+
+/* ===== 言語切替・静的文言適用 ===== */
+function applyStatic(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-h]").forEach(el=>{ el.innerHTML = t(el.dataset.i18nH); });
+  document.documentElement.lang = lang;
+  document.title = t("app.title");
+  const lb=$("#btnLang"); lb.textContent = t("hd.langbtn");
+  lb.title = lang==="ja" ? "Switch to English" : "日本語に切り替え";
+  $("#btnScenario").textContent = t("hd.clean");
+}
+$("#btnLang").onclick=()=>{ localStorage.setItem("sapcfg.lang", lang==="ja"?"en":"ja"); location.reload(); };
 
 async function jget(u){const r=await fetch(u);return r.json()}
 async function jpost(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{})});const j=await r.json();if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j}
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),3200)}
+function toast(m){const tEl=$("#toast");tEl.textContent=m;tEl.classList.add("show");clearTimeout(tEl._h);tEl._h=setTimeout(()=>tEl.classList.remove("show"),3200)}
 
 document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>showView(b.dataset.view));
 function showView(v){
@@ -270,62 +524,177 @@ async function init(){
   const vs=$("#selVars"),ss=$("#selSteps");
   META.templates.forEach(f=>{const o1=document.createElement("option");o1.value=f;o1.textContent=f;vs.appendChild(o1);const o2=document.createElement("option");o2.value=f;o2.textContent=f;ss.appendChild(o2);});
   vs.value="example_customer_vars.yaml";ss.value="example_config_steps.yaml";
-  $("#btnScenario").textContent="🔄 clean";
   $("#scnLabel").textContent="scenario: "+META.scenario;
+  renderTry(); renderScenarios(); renderStructure(); renderGuide();
   loadHistory();loadKB();
 }
-async function loadKB(){
-  try{
-    const kb=await jget("/api/kb");
-    const pen=kb.pending||[];
-    let h=`<div style="display:flex;gap:18px;flex-wrap:wrap">`;
-    h+=`<div><b>pending review</b>: ${pen.length} (auto_fix_allowed=false until approved)</div>`;
-    h+=`<div><b>rules in use</b>: ${Object.keys(kb.stats||{}).length}</div></div>`;
-    if(pen.length)h+=`<table style="margin-top:8px"><tr><th>error_key</th><th>text</th><th>tcode</th><th>risk</th><th>auto_fix</th><th>run</th></tr>`+
-      pen.map(p=>`<tr><td class="mono">${esc(p.error_key)}</td><td>${esc(p.text)}</td><td class="mono">${esc(p.transaction)}</td>`+
-      `<td>${esc(p.risk_level)}</td><td>${p.auto_fix_allowed?"yes":"<span class='bad'>no</span>"}</td><td class="mono">${esc(p.run_id)}</td></tr>`).join("")+"</table>";
-    if(!pen.length)h+=`<div style="color:#1b7f3b;margin-top:6px">✔ no unknown errors pending — every message so far matched a whitelisted rule</div>`;
-    $("#kbBox").innerHTML=h;
-  }catch(e){$("#kbBox").innerHTML="<span class='bad'>"+esc(e.message)+"</span>"}
+function renderTry(){
+  const steps=[
+    ["ov.try.1"],["ov.try.2"],["ov.try.3"],["ov.try.4"]
+  ];
+  $("#tryList").innerHTML=steps.map(s=>`<li>${t(s[0])}</li>`).join("");
 }
-document.querySelectorAll("[data-scn]").forEach(b=>b.onclick=async()=>{
-  const j=await jpost("/api/scenario",{name:b.dataset.scn});
-  $("#scnLabel").textContent="scenario: "+j.scenario;
-  toast("scenario set: "+j.scenario+" (run plan again to re-diff)");
-});
-$("#btnScenario").onclick=async()=>{const j=await jpost("/api/scenario",{name:"clean"});toast("back to clean DEV");};
+function renderScenarios(){
+  const list=[["clean","ov.scn.clean"],["partial","ov.scn.partial"],["conflict","ov.scn.conflict"],
+    ["fault","ov.scn.fault"],["permission","ov.scn.permission"],["unknown","ov.scn.unknown"]];
+  $("#scnButtons").innerHTML=list.map(([name,key])=>
+    `<button class="act ghost mini scnbtn" data-scn="${name}">${t(key)}</button>`).join("");
+  document.querySelectorAll("[data-scn]").forEach(b=>b.onclick=async()=>{
+    const j=await jpost("/api/scenario",{name:b.dataset.scn});
+    $("#scnLabel").textContent="scenario: "+j.scenario;
+    toast(t("m.scnSet").replace("{scn}",j.scenario));
+  });
+}
+$("#btnScenario").onclick=async()=>{const j=await jpost("/api/scenario",{name:"clean"});$("#scnLabel").textContent="scenario: "+j.scenario;toast(t("m.backClean"));};
+
+/* ---------------- 構成図（バイリンガル構造データ） ---------------- */
+const ST = [
+  {lane:"main", kind:"in", file:"templates/ · example_customer_vars.yaml / example_config_steps.yaml",
+   fn:{ja:"業務テンプレート（顧客変数 + 設定ステップ）。パスワード・SQL・GUI制御IDの記載は禁止", en:"Business template (customer variables + config steps). No credentials/SQL/GUI control-IDs allowed"},
+   tag:{ja:"入力",en:"INPUT"}},
+  {lane:"main", file:"schema/ · customer_vars.schema.json / steps.schema.json",
+   fn:{ja:"JSON Schema による構造検証（必須項目・型・パターン）", en:"Structural validation against JSON Schema (required fields, types, patterns)"},
+   tag:{ja:"検証",en:"VALIDATE"}},
+  {lane:"main", file:"sapcfg/load.py",
+   fn:{ja:"パース + セマンティック検証（資格情報/SQL/GUI制御IDを禁止）+ {{var}} 解決", en:"Parse + semantic checks (forbids creds/SQL/control-IDs) + {{var}} resolution"},
+   tag:{ja:"解決",en:"LOAD"}},
+  {lane:"main", file:"sapcfg/planner.py",
+   fn:{ja:"依存DAG → トポロジカル順序 → CREATE/UPDATE/SKIP/CONFLICT/BLOCKED diff（Planモード＝読み取り専用）", en:"Dependency DAG → topo order → CREATE/UPDATE/SKIP/CONFLICT diff (Plan mode, read-only)"},
+   tag:{ja:"プラン",en:"PLAN"}},
+  {lane:"main", file:"sapcfg/orchestrator.py",
+   fn:{ja:"承認ゲート付きApply状態機械：実行 → §6分類 → 境界付きリトライ(≤2) → 読み戻し検証 → ヒューマンキュー", en:"Gated Apply state machine: approval gate → execute → §6 classify → bounded retry → read-back verify → human queue"},
+   tag:{ja:"実行",en:"APPLY"}},
+  {lane:"main", file:"sapcfg/gui/ · mock.py / win_gui.py",
+   fn:{ja:"SAP GUI アダプタ層。mock.py＝このマシンの唯一の選択肢。win_gui.py＝Windows専用・SAPCFG_ALLOW_REAL_SAP=1 が無いと import 不能", en:"SAP GUI adapter layer. mock.py = the only choice here. win_gui.py = Windows-only, unimportable without SAPCFG_ALLOW_REAL_SAP=1"},
+   tag:{ja:"GUI",en:"GUI"}},
+  {lane:"main", file:"sapcfg/verify.py",
+   fn:{ja:"読み戻し比較エンジン（eq / neq / contains / in / regex）で保存後の整合性を検証", en:"Read-back comparison engine (eq/neq/contains/in/regex) verifies persisted state"},
+   tag:{ja:"検証",en:"VERIFY"}},
+  {lane:"main", file:"sapcfg/store.py",
+   fn:{ja:"runs/<run_id>/ に plan.json・events.jsonl・run.sqlite・evidence/*.svg（証跡）を保存", en:"Persists runs/<run_id>/: plan.json, events.jsonl, run.sqlite, evidence/*.svg"},
+   tag:{ja:"保存",en:"STORE"}},
+  {lane:"main", kind:"out", file:"sapcfg/reporter.py",
+   fn:{ja:"Markdown 実行レポート（plan要約・ステップ結果・エラー分類表・PoC指標）", en:"Markdown execution report (plan summary, step results, error table, PoC metrics)"},
+   tag:{ja:"出力",en:"REPORT"}},
+];
+const ST_SIDE = [
+  {file:"error_rules/default_rules.yaml · sapcfg/errclass.py",
+   fn:{ja:"§6 エラー分類：msgクラス+番号 → tcode+テキスト → テキスト → UNKNOWN。LOCK/TRANSIENT/NAVIGATION のみ自動リトライ", en:"§6 error classifier: msg class+number → tcode+text → text → UNKNOWN. Only LOCK/TRANSIENT/NAVIGATION auto-retry"}},
+  {file:"sapcfg/error_kb.py · error_kb/",
+   fn:{ja:"§7.2 エラー知識ベース：ルール使用統計 + 審査待ちキュー（未知エラーは自動修正なし・要コンサル承認）", en:"§7.2 Error KB: rule usage stats + review queue (unknown errors never auto-fix, need approval)"}},
+  {file:"§8 kill switch",
+   fn:{ja:"runs/KILL マーカー / .kill_switch / SAPCFG_KILL_SWITCH=1 で残りステップを ABORTED に", en:"per-run KILL marker, project .kill_switch, or SAPCFG_KILL_SWITCH=1 → remaining steps ABORTED"}},
+  {file:"tests/test_pipeline.py",
+   fn:{ja:"26 件の単体テスト（unittest・オフライン・Mock データ）", en:"26 unit tests (unittest, offline, mock data)"}},
+  {file:"webui/server.py · index.html",
+   fn:{ja:"ビジュアルコンソール（localhost:8912）。Overview→構成図→テンプレート→プラン→適用→レポート", en:"Visual console (localhost:8912). Overview→Structure→Template→Plan→Apply→Report"}},
+];
+function renderStructure(){
+  const L=lang;
+  let h=`<div class="pipemain">`;
+  ST.forEach((n,i)=>{
+    h+=`<div class="pnode ${n.kind||""}">
+      <div class="pfile"><span>${esc(n.file)}</span><span class="ptag">${esc(n.tag[L])}</span></div>
+      <div class="pfn">${esc(n.fn[L])}</div></div>`;
+    if(i<ST.length-1)h+=`<div class="parrow">▼</div>`;
+  });
+  h+=`</div><div class="pipeside">`;
+  ST_SIDE.forEach(n=>{
+    h+=`<div class="pcard"><b>${esc(n.file)}</b><div class="pfn">${esc(n.fn[L])}</div></div>`;
+  });
+  h+=`<div class="pcard legend" style="border-style:solid">
+    <b>${L==="ja"?"状態の凡例":"Status legend"}</b><div class="chips" style="margin-top:6px">
+    ${["CREATE","UPDATE","SKIP","CONFLICT","BLOCKED","SUCCESS","RETRYING","FAILED","MANUAL","ABORTED"].map(s=>`<span class="st ${s}">${s}</span>`).join(" ")}</div></div>`;
+  h+=`</div>`;
+  $("#structureBody").innerHTML=h;
+}
+
+/* ---------------- 使い方（バイリンガル） ---------------- */
+const GD = L => [
+  {h:{ja:"1. これは何？",en:"1. What is this?"},
+   body:[{ja:"標準 SAP カスタマイズ（OB13 / OB29 / OBY6 / OX02 / OX10 等の設定）を <b>コード化（Configuration as Code）</b>して実行するパイプラインです。",
+          en:"A pipeline that turns standard SAP customizing (OB13/OB29/OBY6/OX02/OX10 etc.) into <b>code (Configuration as Code)</b> and executes it."},
+         {ja:"テンプレート（YAML 2 ファイル）→ スキーマ検証 → 依存解決 → 現状との diff（プラン）→ 承認 → Mock SAP 上で実行 → 読み戻し検証 → レポート、の流れです。",
+          en:"Template (2 YAML files) → schema validation → dependency resolution → diff vs current state (plan) → approval → run on Mock SAP → read-back verify → report."}]},
+  {h:{ja:"2. 60 秒クイックスタート（このコンソール）",en:"2. 60-second quick start (this console)"},
+   ol:[{ja:"左メニュー「3・テンプレート」で 2 ファイルを選択し「読み込み & 検証」を押す",en:"In “3 · Template” pick both files and press “Load & validate”"},
+       {ja:"「4・プラン」で「⚙ プラン生成」。現在状態との diff（CREATE/UPDATE/SKIP…）が表示される",en:"In “4 · Plan” press “⚙ Generate Plan” to see the diff vs current state (CREATE/UPDATE/SKIP…)"},
+       {ja:"承認が必要な項目にチェックを入れ、下の同意チェックを ON にする",en:"Tick items that need approval and the consent checkbox below"},
+       {ja:"「▶ 適用実行（MOCK）」→ 疑似 SAP GUI・イベントログ・検証結果をライブで観察",en:"Press “▶ Run Apply (MOCK)” and watch the simulated SAP GUI, event log and verify results live"},
+       {ja:"「6・レポート」で Markdown 実行レポートを確認",en:"Check the Markdown execution report in “6 · Report”"}]},
+  {h:{ja:"3. CLI でも同じことができます",en:"3. Same thing via CLI"},
+   code:"cd ~/Documents/SAP/sap-config-automation\nuv sync\nuv run python -m unittest discover -s tests -v   # 26 tests (offline)\nuv run python run.py plan                          # Plan mode → runs/<run_id>/plan.json\nuv run python run.py apply --run <run_id> --approve cc_jp01\nuv run python run.py demo                          # end-to-end (plan + fault + retry + report)\nuv run python webui/server.py --port 8912          # this console"},
+  {h:{ja:"4. テンプレートの書き方",en:"4. How to write a template"},
+   body:[{ja:"2 ファイル構成：① 顧客変数（顧客名・対象システムなど） ② 設定ステップ（対象 tcode・パラメータ・依存関係）。<span class=gfile>templates/example_*.yaml</span> を雛形に、JSON Schema（<span class=gfile>schema/*.json</span>）に沿って作成します。",
+          en:"Two files: ① customer variables (customer, target system…) ② config steps (tcodes, params, dependencies). Start from <span class=gfile>templates/example_*.yaml</span> and follow the JSON Schemas in <span class=gfile>schema/*.json</span>."},
+         {ja:"実行結果は <span class=gfile>runs/&lt;run_id&gt;/</span> に保存：<span class=mono>plan.json</span>（プラン diff）・<span class=mono>events.jsonl</span>（全イベント監査ログ）・<span class=mono>run.sqlite</span>（ステップ状態）・<span class=mono>evidence/*.svg</span>（画面証跡）・<span class=mono>report.md</span>（レポート）。",
+          en:"Every run is saved under <span class=gfile>runs/&lt;run_id&gt;/</span>: <span class=mono>plan.json</span>, <span class=mono>events.jsonl</span> (audit log), <span class=mono>run.sqlite</span> (step state), <span class=mono>evidence/*.svg</span> (screenshots), <span class=mono>report.md</span>."}]},
+  {h:{ja:"5. 安全設計（コードで強制）",en:"5. Safety posture (enforced in code)"},
+   ul:[{ja:"このマシン（macOS）では実 SAP アダプタは import すら不可（Windows 専用 + SAPCFG_ALLOW_REAL_SAP=1）",en:"On this machine (macOS) the real-SAP adapter cannot even be imported (Windows-only + SAPCFG_ALLOW_REAL_SAP=1)"},
+       {ja:"Plan モードは読み取り専用の状態ビューに対してのみ diff を取る",en:"Plan mode diffs against a read-only state view"},
+       {ja:"Apply はここでは Mock アダプタ専用（CLI --adapter mock のみ）",en:"Apply here is mock-adapter only (CLI --adapter mock is the only choice)"},
+       {ja:"SAP テーブルへの直接 DB 書き込みコードは存在しない",en:"No direct SAP DB writes anywhere in the code base"},
+       {ja:"実行には既存プラン + 項目ごとの承認が必要（上書き系はヒューマンキュー）",en:"Apply needs an existing plan + per-item approval (overwrite items → human queue)"}]},
+  {h:{ja:"6. FAQ",en:"6. FAQ"}},
+  {q:{ja:"Q1. このツールは実 SAP システムに接続して設定を変更できますか？",en:"Q1. Can this tool connect to a real SAP system and change settings?"},
+   a:{ja:"<b>いいえ — 現状（Phase 1）はできません。</b>このコンソールも CLI も Mock SAP に対してのみ動作します。コード上も設計上も、この Mac から実システムへの接続経路は存在しません（安全設計 §Safety）。",
+      en:"<b>No — not in Phase 1.</b> Both this console and the CLI run only against the built-in Mock SAP. By design and in code, there is no path from this machine to a real system."}},
+  {q:{ja:"Q2. SAP GUI を自動起動して、テンプレートのとおり自動実行してくれますか？",en:"Q2. Can it auto-start SAP GUI and execute my template automatically?"},
+   a:{ja:"<b>このマシンでは：いいえ。</b>SAP GUI の自動起動・操作は Phase 2 ロードマップにあります。実 SAP GUI スクリプティングを使うには ① Windows + SAP GUI Scripting が有効な端末 ② <span class=mono>win_gui.py</span> の画面マップ（クライアントリリースごとの操作パス）を事前に 1 回記録 ③ <span class=mono>SAPCFG_ALLOW_REAL_SAP=1</span> の明示許可 が必要です。この準備ができれば、同じテンプレート → プラン → 承認 → 実行の流れを実 GUI に適用できます。現段階では <b>Mock SAP 上でパイプライン全体（検証・リトライ・証跡・レポート）を完成させる</b>のが目的です。",
+      en:"<b>On this machine: no.</b> Auto-starting/driving SAP GUI is on the Phase 2 roadmap. Real SAP GUI Scripting requires ① a Windows box with SAP GUI scripting enabled, ② screen maps in <span class=mono>win_gui.py</span> recorded once per client release, ③ explicit <span class=mono>SAPCFG_ALLOW_REAL_SAP=1</span>. Once prepared, the same template → plan → approval → apply flow targets the real GUI. Today the goal is to complete the whole pipeline (verify/retry/evidence/report) on the <b>Mock SAP</b>."}},
+  {q:{ja:"Q3. エラーが起きたらどうなりますか？",en:"Q3. What happens on errors?"},
+   a:{ja:"§6 分類でホワイトリスト（<span class=mono>error_rules/default_rules.yaml</span>）と照合。LOCK / TRANSIENT / NAVIGATION は自動リトライ（最大 2 回）。それ以外（権限・ビジネス競合・未知）はリトライせずヒューマンキューへ。未知エラーは <b>自動修正なし</b>で審査キュー（<span class=mono>error_kb/pending.json</span>）に入り、コンサルタントの承認待ちになります。",
+      en:"Messages are classified (§6) against a whitelist (<span class=mono>error_rules/default_rules.yaml</span>). LOCK/TRANSIENT/NAVIGATION auto-retry (≤2). Permission/business-conflict/unknown never retry → human queue. Unknown errors are proposed to the review queue (<span class=mono>error_kb/pending.json</span>) with <b>auto_fix_allowed=false</b> until a consultant approves."}},
+  {q:{ja:"Q4. 実行を途中で止められますか？",en:"Q4. Can I stop a run mid-way?"},
+   a:{ja:"はい。§8 kill switch：実行フォルダに <span class=mono>KILL</span> ファイルを作る / プロジェクトの <span class=mono>.kill_switch</span> / 環境変数 <span class=mono>SAPCFG_KILL_SWITCH=1</span> → 残りステップは ABORTED になります。",
+      en:"Yes (§8 kill switch): create a <span class=mono>KILL</span> marker in the run folder, the project <span class=mono>.kill_switch</span>, or set <span class=mono>SAPCFG_KILL_SWITCH=1</span> → remaining steps ABORTED."}}
+];
+function renderGuide(){
+  const L=lang;
+  const g=GD(L);
+  let h="";
+  g.forEach(sec=>{
+    if(sec.h)h+=`<h3>${sec.h[L]}</h3>`;
+    if(sec.body)h+=sec.body.map(b=>`<p>${b[L]}</p>`).join("");
+    if(sec.ol)h+=`<ol>${sec.ol.map(x=>`<li>${x[L]}</li>`).join("")}</ol>`;
+    if(sec.ul)h+=`<ul>${sec.ul.map(x=>`<li>${x[L]}</li>`).join("")}</ul>`;
+    if(sec.code)h+=`<div class="code bright">${esc(sec.code)}</div>`;
+    if(sec.q)h+=`<div class="q">${sec.q[L]}</div><div class="a">${sec.a[L]}</div>`;
+  });
+  $("#guideBody").innerHTML=h;
+}
 
 /* ---------------- template / schema ---------------- */
 let bundle=null;
 $("#btnLoad").onclick=async()=>{
-  $("#schemaResult").innerHTML="validating…";
+  $("#schemaResult").innerHTML=t("m.validating");
   try{
     const meta=await jpost("/api/validate-template",{vars:$("#selVars").value,steps:$("#selSteps").value});
-    // NOTE: server validates inside /api/plan; keep a local summary here
     bundle={vars:$("#selVars").value,steps:$("#selSteps").value,structure:meta.structure};
-    $("#schemaResult").innerHTML="<span class='ok'>✔ template files selected: "+meta.structure.template_id+" v"+meta.structure.template_version+"</span> · run <b>Generate Plan</b> to see the full schema diff";
+    const s=meta.structure;
+    $("#schemaResult").innerHTML=t("m.okSelected").replace("{tpl}",esc(s.template_id)).replace("{ver}",esc(s.template_version));
     renderTemplate(meta.structure);
     showView("template");
   }catch(e){$("#schemaResult").innerHTML="<span class='bad'>✘ "+esc(e.message)+"</span>"}
 };
 function renderTemplate(s){
   const tgt=s.target;
-  let h=`<div class="grid2"><div class="card"><h2>Template structure</h2>
-   <table><tr><th>field</th><th>value</th></tr>
+  let h=`<div class="grid2"><div class="card"><h2>${t("tp.structure")}</h2>
+   <table><tr><th>${t("m.field")}</th><th>${t("m.value")}</th></tr>
    <tr><td>template_id</td><td class="mono">${esc(s.template_id)}</td></tr>
    <tr><td>template_version</td><td class="mono">${esc(s.template_version)}</td></tr>
    <tr><td>customer</td><td>${esc(s.customer||"-")}</td></tr>
    <tr><td>target</td><td class="mono">${esc(tgt.environment+" / "+tgt.sap_system+" / client "+tgt.client)}</td></tr></table>
-   <p style="margin:12px 0 4px"><b>Customer variables</b></p><div class="chips">
+   <p style="margin:12px 0 4px"><b>${t("tp.vars")}</b></p><div class="chips">
    ${Object.entries(s.variables||{}).map(([k,v])=>`<span class="chip"><b>${esc(k)}</b> = ${esc(v)}</span>`).join("")}</div></div>
-   <div class="card"><h2>Schema &amp; policy</h2>
+   <div class="card"><h2>${t("tp.schema")}</h2>
    <div class="code">${esc(JSON.stringify(s.validation,null,1))}</div></div></div>`;
-  h+=`<div class="card"><h2>Config items (${s.items.length})</h2><table>
-   <tr><th>id</th><th>kind</th><th>tcode</th><th>depends_on</th><th>on_existing</th><th>human_approval</th><th>params</th></tr>`;
+  h+=`<div class="card"><h2>${t("tp.items")} (${s.items.length})</h2><table>
+   <tr><th>${t("tbl.colId")}</th><th>${t("tbl.colKind")}</th><th>${t("tbl.colTcode")}</th><th>${t("tbl.colDepends")}</th><th>${t("tbl.colOnExisting")}</th><th>${t("tbl.colHuman")}</th><th>${t("tbl.colParams")}</th></tr>`;
   for(const it of s.items){
     h+=`<tr><td class="mono">${esc(it.id)}</td><td>${esc(it.kind)}</td><td class="mono">${esc(it.transaction||"-")}</td>
      <td>${(it.depends_on||[]).map(d=>`<span class="chip">${esc(d)}</span>`).join(" ")||"<span class='lvl'>—</span>"}</td>
-     <td>${esc(it.on_existing||"skip_if_match")}</td><td>${it.human_approval?"<span class='bad'>yes</span>":"no"}</td>
+     <td>${esc(it.on_existing||"skip_if_match")}</td><td>${it.human_approval?"<span class='bad'>"+t("m.colYes")+"</span>":t("m.colNo")}</td>
      <td class="mono" style="font-size:11px">${esc(JSON.stringify(it.params))}</td></tr>`;
   }
   h+="</table></div>";
@@ -348,14 +717,14 @@ async function loadPlan(runId){
   $("#planSummary").innerHTML=Object.entries(sum).map(([k,n])=>`<div class="box"><div class="n" style="color:${col(k)}">${n}</div><div class="l">${k}</div></div>`).join("");
   const order=["CREATE","UPDATE","SKIP","CONFLICT","BLOCKED","ERROR"];
   const rows=p.items.slice().sort((a,b)=>order.indexOf(a.status)-order.indexOf(b.status)||a.seq-b.seq);
-  let h=`<table><tr><th>#</th><th>status</th><th>item</th><th>kind / tcode</th><th>reason</th><th>needs approval</th></tr>`;
+  let h=`<table><tr><th>#</th><th>${t("tbl.colStatus")}</th><th>${t("tbl.colItem")}</th><th>${t("tbl.colKind")} / ${t("tbl.colTcode")}</th><th>${t("tbl.colReason")}</th><th>${t("tbl.colApproval")}</th></tr>`;
   const gated=[];
   rows.forEach(i=>{
     h+=`<tr><td>${i.seq}</td><td><span class="st ${i.status}">${i.status}</span></td>
      <td class="mono">${esc(i.item_id)}<div style="color:#52637a;font-size:11px">${esc(i.title)}</div></td>
      <td class="mono">${esc(i.kind)}${i.transaction?" · "+esc(i.transaction):""}</td>
      <td style="color:#52637a">${esc(i.reason)}</td>
-     <td>${i.needs_approval?"<span class='bad'>required</span>":"—"}</td></tr>`;
+     <td>${i.needs_approval?"<span class='bad'>"+t("m.approvalRequired")+"</span>":"—"}</td></tr>`;
     if(i.needs_approval||["CONFLICT","UPDATE"].includes(i.status))gated.push(i);
   });
   h+="</table>";
@@ -367,19 +736,18 @@ async function loadPlan(runId){
       const it=p.items.find(x=>x.item_id===id);
       return `<span class="depnode" style="border-color:${col(it.status)};color:${col(it.status)}">${esc(id)}<span style="margin-left:6px;font-size:10px;color:#7a8ba0">${it.status}</span></span>`;
     }).join("")+`</div>`;});
-  gh+=`<div class="deparrow">▼ execution order (topological)</div>`;
+  gh+=`<div class="deparrow">▼ ${lang==="ja"?"実行順序（トポロジカル）":"execution order (topological)"}</div>`;
   $("#depGraph").innerHTML=gh;
   // approval UI
   $("#approvalList").innerHTML=gated.length?gated.map(g=>`
      <div class="approve-row"><input type="checkbox" class="chkAppr" value="${esc(g.item_id)}"/>
      <div><b class="mono">${esc(g.item_id)}</b> — ${esc(g.status)}: ${esc(g.reason)}
-     <div style="color:#8a6d1a;font-size:12px">Desired: ${esc(JSON.stringify(g.desired))}<br/>Current: ${esc(JSON.stringify(g.current))}</div></div></div>`).join("")
-     :"<div style='color:#52637a'>no gated items — all steps are safe/skip/create.</div>";
+     <div style="color:#8a6d1a;font-size:12px">${t("tbl.colDesired")}: ${esc(JSON.stringify(g.desired))}<br/>${t("tbl.colCurrent")}: ${esc(JSON.stringify(g.current))}</div></div></div>`).join("")
+     :"<div style='color:#52637a'>"+t("m.noneGated")+"</div>";
   $("#applyCard").classList.remove("hidden");
   $("#btnApply").disabled=!$("#chkConsent").checked;
 }
 function layers(items){
-  // longest-path layering from depends_on
   const lvl={};
   const by={};items.forEach(i=>by[i.item_id]=i.depends_on||[]);
   const depth=id=>{if(lvl[id]!==undefined)return lvl[id];let d=0;(by[id]||[]).forEach(x=>d=Math.max(d,depth(x)+1));return lvl[id]=d;};
@@ -387,24 +755,23 @@ function layers(items){
   const out=[];items.forEach(i=>{(out[lvl[i.item_id]]=out[lvl[i.item_id]]||[]).push(i.item_id)});
   return out;
 }
-function col(s){return {CREATE:"#1d7a8a",UPDATE:"#0e6b8a",SKIP:"#64748b",CONFLICT:"#c0392b",BLOCKED:"#6d3b9e",ERROR:"#b91c1c",SUCCESS:"#1b7f3b",RUNNING:"#2456a6",RETRYING:"#b7791f",FAILED:"#c0392b",MANUAL:"#7c3aed",SKIPPED:"#64748b"}[s]||"#64748b"}
-$("#chkConsent").onchange=()=>{const gatedOk=document.querySelectorAll(".chkAppr").length===0||[...document.querySelectorAll(".chkAppr")].some(c=>c.checked);$("#btnApply").disabled=!($("#chkConsent").checked);};
+function col(s){return {CREATE:"#1d7a8a",UPDATE:"#0e6b8a",SKIP:"#64748b",CONFLICT:"#c0392b",BLOCKED:"#6d3b9e",ERROR:"#b91c1c",SUCCESS:"#1b7f3b",RUNNING:"#2456a6",RETRYING:"#b7791f",FAILED:"#c0392b",MANUAL:"#7c3aed",SKIPPED:"#64748b",ABORTED:"#7f1d1d"}[s]||"#64748b"}
+$("#chkConsent").onchange=()=>{$("#btnApply").disabled=!$("#chkConsent").checked;};
 function gatherApprovals(){return [...document.querySelectorAll(".chkAppr:checked")].map(c=>c.value)}
 
 /* ---------------- apply / run ---------------- */
 $("#btnApply").onclick=async()=>{
-  if(!currentRun)return toast("generate a plan first");
+  if(!currentRun)return toast(t("m.planFirst"));
   const approvals=gatherApprovals();
   showView("run");startRunView(currentRun);
   $("#runTitle").textContent="· run "+currentRun;
   try{
-    // poll events while POST runs in background
     const p=startPolling(currentRun);
     const res=await jpost("/api/apply",{run:currentRun,approvals,consent:$("#chkConsent").checked});
     await p; stopPolling();
     renderSteps(res.steps,res.stats);
     renderEvidence(res.evidence||[]);
-    toast("apply finished"); loadKB();
+    toast(t("m.applyFinish")); loadKB();
   }catch(e){stopPolling();toast("✘ "+e.message);console.error(e);}
   refreshRuns();
 };
@@ -429,7 +796,7 @@ function handleEvent(e){
   }else if(e.type==="message"){
     appendLog("SAP: "+pl.text+" ["+pl.cls+"]",pl.retryable?"warn":pl.cls==="error"?"log-err":pl.cls==="success"?"log-ok":"");
   }else if(e.type==="gate"){
-    appendLog("⛔ human gate: "+pl.item+" ("+pl.status+") "+pl.reason,"warn");
+    appendLog("⛔ "+(lang==="ja"?"承認ゲート":"human gate")+": "+pl.item+" ("+pl.status+") "+pl.reason,"warn");
   }else if(e.type==="apply"){
     if(pl.started)appendLog("▶ apply started (adapter "+pl.adapter+", approvals="+JSON.stringify(pl.approvals)+")","log-ok");
     if(pl.finished)appendLog("■ apply finished","log-ok");
@@ -461,7 +828,7 @@ function handleEvent(e){
     const strip=$("#evidenceStrip");strip.scrollTop=strip.scrollHeight;
   }
 }
-function appendLog(t,cls){const l=$("#log");const d=document.createElement("div");if(cls)d.className=cls;d.textContent=t;l.appendChild(d);while(l.children.length>300)l.removeChild(l.firstChild);l.scrollTop=l.scrollHeight}
+function appendLog(tm,cls){const l=$("#log");const d=document.createElement("div");if(cls)d.className=cls;d.textContent=tm;l.appendChild(d);while(l.children.length>300)l.removeChild(l.firstChild);l.scrollTop=l.scrollHeight}
 function upsertChip(stepId,state,verified){
   const wrap=$("#stepChips");
   let chip=[...wrap.children].find(c=>c.dataset.item===stepId);
@@ -469,10 +836,10 @@ function upsertChip(stepId,state,verified){
   chip.innerHTML=`<b style="color:${col(state)}">${state}</b> · ${esc(stepId)}${verified?" ✔":""}`;
 }
 function renderScreen(pl){
-  $("#scrTitle").textContent=pl.title||"SAP";$("#scrTcode").textContent="["+(pl.tcode||"")+"]";
+  $("#scrTitle").textContent=scrT(pl.title||"SAP");$("#scrTcode").textContent="["+(pl.tcode||"")+"]";
   $("#scrMeta").textContent=(pl.system||"")+" / "+(pl.client||"")+" / "+(pl.user||"");
   $("#scrFields").innerHTML=(pl.fields||[]).map(f=>`
-    <div class="sfield"><label>${esc(f.label)}</label>
+    <div class="sfield"><label>${esc(scr(f.label))}</label>
     <div class="v ${f.key?"key":""}">${esc(f.value!==undefined?f.value:"")}${f.kind==="dropdown"?" ▾":""}</div></div>`).join("");
   $("#scrButtons").textContent=(pl.buttons||[]).join("    ");
   const sc=pl.status_class||"info";const st=$("#scrStatus");
@@ -494,19 +861,18 @@ async function refreshRuns(){
   const sel=$("#selReport");const old=sel.value;
   sel.innerHTML=runs.map(r=>`<option value="${r.run_id}">${r.run_id}</option>`).join("");
   if(old&&runs.some(r=>r.run_id===old))sel.value=old;
-  $("#runHistory").innerHTML=runs.length?`<table><tr><th>run</th><th>template</th><th>created</th><th>plan</th><th>results</th></tr>`+
+  $("#runHistory").innerHTML=runs.length?`<table><tr><th>${t("rh.run")}</th><th>${t("rh.template")}</th><th>${t("rh.created")}</th><th>${t("rh.plan")}</th><th>${t("rh.results")}</th></tr>`+
     runs.map(r=>`<tr><td class="mono">${r.run_id}</td><td>${esc(r.template_id)} · ${esc(r.customer)}</td><td>${esc(r.created)}</td>
     <td>${Object.entries(r.summary).map(([k,n])=>`<span class="st ${k}" style="margin-right:3px">${k} ${n}</span>`).join("")}</td>
     <td>${(r.steps||[]).map(s=>`<span class="st ${s.state}">${s.state}</span>`).join(" ")}</td></tr>`).join("")+"</table>"
-    :"no runs yet — generate a plan";
+    :t("m.noRuns");
 }
 $("#btnRefreshReport").onclick=()=>{if($("#selReport").value)loadReport($("#selReport").value)};
 $("#selReport").onchange=()=>loadReport($("#selReport").value);
 async function loadReport(run){
-  $("#reportMarkdown").innerHTML="loading…";
+  $("#reportMarkdown").innerHTML=t("m.loadReport");
   const j=await jget("/api/runs/"+run+"/report");
   const md=j.markdown;
-  // naive markdown -> html for readability
   let h="";
   md.split("\n").forEach(line=>{
     if(line.startsWith("# "))h+="<h2 style='margin:14px 0 6px'>"+esc(line.slice(2))+"</h2>";
@@ -519,6 +885,24 @@ async function loadReport(run){
   $("#reportMarkdown").innerHTML=`<div class="code">${h}</div><div class="code" style="margin-top:10px">${esc(md)}</div>`;
 }
 async function loadHistory(){refreshRuns()}
+async function loadKB(){
+  try{
+    const kb=await jget("/api/kb");
+    const pen=kb.pending||[];
+    let h=`<div style="display:flex;gap:18px;flex-wrap:wrap">`;
+    h+=`<div><b>${t("m.kbPending")}</b>: ${pen.length} (auto_fix_allowed=false ${lang==="ja"?"承認まで":"until approved"})</div>`;
+    h+=`<div><b>${t("m.kbRules")}</b>: ${Object.keys(kb.stats||{}).length}</div></div>`;
+    if(pen.length)h+=`<table style="margin-top:8px"><tr><th>error_key</th><th>text</th><th>tcode</th><th>risk</th><th>auto_fix</th><th>run</th></tr>`+
+      pen.map(p=>`<tr><td class="mono">${esc(p.error_key)}</td><td>${esc(p.text)}</td><td class="mono">${esc(p.transaction)}</td>`+
+      `<td>${esc(p.risk_level)}</td><td>${p.auto_fix_allowed?t("m.colYes"):"<span class='bad'>"+t("m.colNo")+"</span>"}</td><td class="mono">${esc(p.run_id)}</td></tr>`).join("")+"</table>";
+    if(!pen.length)h+=`<div style="color:#1b7f3b;margin-top:6px">${t("m.kbClean")}</div>`;
+    $("#kbBox").innerHTML=h;
+  }catch(e){$("#kbBox").innerHTML="<span class='bad'>"+esc(e.message)+"</span>"}
+}
+
+/* ===== 起動 ===== */
+let META=null, currentRun=null, currentPlan=null, pollTimer=null, pollLast=0;
+applyStatic();
 init();
 </script>
 </body>
