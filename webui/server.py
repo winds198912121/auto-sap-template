@@ -16,6 +16,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -150,7 +152,14 @@ class H(BaseHTTPRequestHandler):
                 self._set_scenario(body.get("name", "clean"))
                 return self._json(dict(ok=True, scenario=STATE["scenario"]))
             if p == "/api/validate-template":
-                return self._json(dict(structure=self._structure(body)), 200)
+                vs = body.get("vars", "example_customer_vars.yaml")
+                sf = body.get("steps", "example_config_steps.yaml")
+                try:
+                    st = self._structure(body)
+                except SchemaError as e:
+                    # 防呆：内容级诊断（选反/同一文件）＋スキーマ原文
+                    return self._json(dict(error=str(e), diagnosis=self._diagnose_pair(vs, sf)), 400)
+                return self._json(dict(structure=st, diagnosis=self._diagnose_pair(vs, sf)), 200)
             if p == "/api/plan":
                 with _lock:
                     run = self._plan(body)
@@ -185,6 +194,27 @@ class H(BaseHTTPRequestHandler):
         if not f.exists() or not str(f.resolve()).startswith(str(TEMPLATES.resolve())):
             raise ValueError(f"template not allowed: {name}")
         return f
+
+    def _top_keys(self, name: str) -> set:
+        """テンプレートYAMLのトップレベルキーを読む（診断用・読み取りのみ）"""
+        try:
+            f = self._resolve_template(name)
+            d = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            return set(d.keys()) if isinstance(d, dict) else set()
+        except Exception:
+            return set()
+
+    def _diagnose_pair(self, vars_name: str, steps_name: str) -> dict:
+        """ファイルを中身で判別：vars欄にsteps系・steps欄にvars系が来ていないか"""
+        vk = self._top_keys(vars_name)
+        sk = self._top_keys(steps_name)
+        return dict(
+            same_file=(vars_name == steps_name),
+            vars_looks_like_steps=("config_items" in vk and "variables" not in vk),
+            steps_looks_like_vars=("config_items" not in sk
+                                   and ("variables" in sk or "customer" in sk)),
+            file_names=dict(vars=vars_name, steps=steps_name),
+        )
 
     def _structure(self, body: dict) -> dict:
         vars_f = self._resolve_template(body.get("vars", "example_customer_vars.yaml"))

@@ -112,6 +112,10 @@
   .gfile{font:600 12.5px Menlo,Consolas,monospace;color:#2456a6}
   .kbd{background:#0f1c2e;color:#cfe3ff;border-radius:5px;padding:1px 7px;font:12px Menlo,monospace}
   .scnbtn{display:inline-flex;align-items:center;gap:6px;margin:3px}
+  .hint{border-radius:8px;padding:8px 12px;margin-top:10px;font-size:13px}
+  .hint.err{background:#fdeeee;border:1px solid #f2c1bb;color:#9b1c1c}
+  .hint.warn{background:#fff8ec;border:1px solid #f0d9a8;color:#7a4d00}
+  .hint.ok{background:#eaf6ee;border:1px solid #b5dfc3;color:#14602f}
 </style>
 </head>
 <body>
@@ -196,6 +200,7 @@
       <select id="selSteps"></select>
       <button class="act" id="btnLoad" data-i18n="tp.load">Load &amp; validate</button>
     </div>
+    <div id="tplHint" class="hidden"></div>
     <div id="schemaResult" style="margin-top:10px"></div>
   </div>
   <div id="templateBody"></div>
@@ -341,6 +346,11 @@ const D = {
     "tp.vars": "顧客変数",
     "tp.steps": "設定ステップ",
     "tp.load": "読み込み & 検証",
+    "tp.hint.same": "✋ 2 つの欄に同じファイル {f} を選んでいます — 顧客変数と設定ステップは<b>別ファイルのペア</b>です（例: example_customer_vars.yaml + example_config_steps.yaml）",
+    "tp.hint.swap": "✋ 選び方が<b>逆</b>の可能性：{v} は設定ステップ用（中身 config_items）、{s} は顧客変数用（中身 customer/variables）に見えます。<b>2 つを入れ替えて</b>ください",
+    "tp.hint.varsSlot": "✋ 「顧客変数」欄の {f} は<b>設定ステップ用</b>ファイル（config_items）に見えます。設定ステップ欄と入れ替えてください",
+    "tp.hint.stepsSlot": "✋ 「設定ステップ」欄の {f} は<b>顧客変数用</b>ファイル（customer/variables）に見えます。顧客変数欄と入れ替えてください",
+    "tp.hint.ok": "✔ ペア OK — 内容も位置も正しそうです",
     "pl.h": "プランモード（読み取り専用 diff）",
     "pl.gen": "⚙ プラン生成",
     "pl.dep": "依存グラフ",
@@ -431,6 +441,11 @@ const D = {
     "tp.vars": "Customer variables",
     "tp.steps": "Config steps",
     "tp.load": "Load & validate",
+    "tp.hint.same": "✋ Both selects point to the same file {f} — vars and steps are <b>two different paired files</b> (e.g. example_customer_vars.yaml + example_config_steps.yaml)",
+    "tp.hint.swap": "✋ Looks like the two picks are <b>swapped</b>: {v} looks like a steps file (contains config_items), {s} looks like a vars file (customer/variables). <b>Swap them</b>",
+    "tp.hint.varsSlot": "✋ The file in the <b>Customer variables</b> slot ({f}) looks like a <b>config steps</b> file (config_items). Swap it with the other slot",
+    "tp.hint.stepsSlot": "✋ The file in the <b>Config steps</b> slot ({f}) looks like a <b>customer vars</b> file (customer/variables). Swap it with the other slot",
+    "tp.hint.ok": "✔ Pair OK — files and slots look correct",
     "pl.h": "Plan mode (read-only diff)",
     "pl.gen": "⚙ Generate Plan",
     "pl.dep": "Dependency graph",
@@ -664,16 +679,56 @@ function renderGuide(){
   $("#guideBody").innerHTML=h;
 }
 
-/* ---------------- template / schema ---------------- */
+/* ---------------- template / schema（防呆つき） ---------------- */
 let bundle=null;
+function setHint(kind,html){
+  const el=$("#tplHint");
+  if(!html){el.classList.add("hidden");el.innerHTML="";return;}
+  el.className="hint "+kind; el.innerHTML=html; el.classList.remove("hidden");
+}
+// ファイル名からの簡易判定（サーバーは中身で判定するので、これは即時ヒント用）
+const looksSteps = n => /(^|[_-])steps|config_steps|config_/i.test(n);
+const looksVars  = n => /vars|customer/i.test(n);
+// サーバー診断（中身のトップレベルキーで判定）→ 信頼度が高い
+function applyDiag(d, showOk){
+  if(!d)return;
+  const v=(d.file_names&&d.file_names.vars)||"", s=(d.file_names&&d.file_names.steps)||"";
+  if(d.same_file){ setHint("err", t("tp.hint.same").replace("{f}",esc(v))); return; }
+  if(d.vars_looks_like_steps && d.steps_looks_like_vars){
+    setHint("err", t("tp.hint.swap").replace("{v}",esc(v)).replace("{s}",esc(s))); return; }
+  if(d.vars_looks_like_steps){ setHint("warn", t("tp.hint.varsSlot").replace("{f}",esc(v))); return; }
+  if(d.steps_looks_like_vars){ setHint("warn", t("tp.hint.stepsSlot").replace("{f}",esc(s))); return; }
+  if(showOk) setHint("ok", t("tp.hint.ok"));
+}
+function updateTemplateHint(){
+  const v=$("#selVars").value, s=$("#selSteps").value;
+  if(!v||!s)return;
+  if(v===s){ setHint("warn", t("tp.hint.same").replace("{f}",esc(v))); return; }
+  if(looksSteps(v)&&looksVars(s)){ setHint("err", t("tp.hint.swap").replace("{v}",esc(v)).replace("{s}",esc(s))); return; }
+  if(looksSteps(v)){ setHint("warn", t("tp.hint.varsSlot").replace("{f}",esc(v))); return; }
+  if(looksVars(s)){ setHint("warn", t("tp.hint.stepsSlot").replace("{f}",esc(s))); return; }
+  setHint("",null);
+}
+$("#selVars").onchange=updateTemplateHint;
+$("#selSteps").onchange=updateTemplateHint;
 $("#btnLoad").onclick=async()=>{
+  const vars=$("#selVars").value, steps=$("#selSteps").value;
+  updateTemplateHint();
   $("#schemaResult").innerHTML=t("m.validating");
   try{
-    const meta=await jpost("/api/validate-template",{vars:$("#selVars").value,steps:$("#selSteps").value});
-    bundle={vars:$("#selVars").value,steps:$("#selSteps").value,structure:meta.structure};
-    const s=meta.structure;
+    const r=await fetch("/api/validate-template",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({vars,steps})});
+    const j=await r.json();
+    if(!r.ok){
+      applyDiag(j.diagnosis,false);
+      $("#schemaResult").innerHTML="<span class='bad'>✘ "+esc(j.error||("HTTP "+r.status))+"</span>";
+      return;
+    }
+    applyDiag(j.diagnosis,true);
+    bundle={vars,steps,structure:j.structure};
+    const s=j.structure;
     $("#schemaResult").innerHTML=t("m.okSelected").replace("{tpl}",esc(s.template_id)).replace("{ver}",esc(s.template_version));
-    renderTemplate(meta.structure);
+    renderTemplate(j.structure);
     showView("template");
   }catch(e){$("#schemaResult").innerHTML="<span class='bad'>✘ "+esc(e.message)+"</span>"}
 };
