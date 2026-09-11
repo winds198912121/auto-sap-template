@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""Generate the operations-flow architecture diagram (SAP Fiori / S/4 style).
+"""運用フロー構成図（SAP GUI 画面風格 / ja + en）を生成する。
 
-Outputs:
-  docs/system_flow.svg   - standalone diagram (README / docs embedding)
-  docs/system_flow.html  - Fiori-styled page with the diagram + KPI tiles
+デザインはローカルスキル `sap-gui-screen`（= SAP-GUI界面设计模版 V1.0）に準拠:
+  五層構造 L1 メニューバー #D9E5F2 → L2 システムツールバー #9DB9D9 → L3 タイトル #F2F2F2
+        → L4 アプリケーションツールバー #AECAEC → L5 データ領域 #F2F2F2
+  配色 #C0C0C0 / #AECAEC / #C5D9F1 / #ECECEC / #F0F0F0 / #FFFF80 / #0000FF / #008000 / #FF0000
+  フォント Tahoma, Arial（ja は MS Gothic / Hiragino にフォールバック）
+  角丸なし・1px #808080 罫線・SAP 標準ボタン（F8/F3/Ctrl+S/F12/F1）・メッセージ種別 S/W/E/I/A
 
-Run:  uv run python docs/build_flow_diagram.py
+出力:
+  docs/system_flow.ja.svg / .ja.html / .ja.png / system_flow_diagram.ja.png
+  docs/system_flow.en.svg / .en.html / .en.png / system_flow_diagram.en.png
+
+Run:  python3 docs/build_flow_diagram.py
 """
 from __future__ import annotations
 
@@ -14,56 +21,64 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent
 
-W, H = 1680, 978
-
+# --------------------------------------------------------------------------- palette (skill §颜色体系)
 C = dict(
-    shell="#1e3a5f", ink="#0f1c2e", ink2="#33465c", mut="#64748b",
-    card="#ffffff", line="#dbe3ec",
-    blue="#0070f2", blue_dk="#1e3a5f",
-    orange="#e76500", green="#1b7f3b", indigo="#5d36ff", teal="#0e8b8b",
-    red="#c0392b", amber="#b7791f",
-    human="#fff8f0", pipe="#f4f8ff", sap="#f3fbf6", guard="#f7f4ff", state="#fafcff",
+    l1="#D9E5F2", l2="#9DB9D9", l3="#F2F2F2", l4="#AECAEC", l5="#F2F2F2",
+    grey="#C0C0C0", face="#D4D0E1", btnface="#D4D0C8", alv="#AECAEC", header="#ECECEC",
+    filter="#C5D9F1", label="#F0F0F0", disabled="#E0E0E0", search="#FFFF80",
+    link="#0000FF", err="#FF0000", ok="#008000", ink="#000000", ink2="#333333",
+    ink3="#666666", ink4="#999999", line="#808080", white="#FFFFFF",
 )
+F = ("Tahoma,Arial,'MS Gothic','Hiragino Kaku Gothic ProN','Yu Gothic UI',"
+     "'Noto Sans JP',sans-serif")
+MONO = "'Courier New',Menlo,Consolas,monospace"     # OK-code 欄のみ等幅
 
-FONT = ("'72','72full','IBM Plex Sans','Hiragino Sans','Hiragino Kaku Gothic ProN',"
-        "'Yu Gothic UI','PingFang SC','Segoe UI','Noto Sans JP',sans-serif")
-MONO = "Menlo,Consolas,'SFMono-Regular','DejaVu Sans Mono',monospace"
+W = 1680
+L1H, L2H, L3H, L4H = 18, 26, 22, 28
+DATA_TOP = L1H + L2H + L3H + L4H          # 94
+H = 1026
+MSG_Y = 1002
 
-STATUS = [
-    ("CREATE", "#1d7a8a"), ("UPDATE", "#0e6b8a"), ("SKIP", "#64748b"),
-    ("CONFLICT", "#c0392b"), ("BLOCKED", "#6d3b9e"), ("ERROR", "#b91c1c"),
-]
-RESULT = [
-    ("SUCCESS", "#1b7f3b"), ("RUNNING", "#0070f2"), ("RETRYING", "#b7791f"),
-    ("SKIPPED", "#64748b"), ("FAILED", "#c0392b"), ("MANUAL", "#7c3aed"),
-    ("BLOCKED", "#6d3b9e"), ("ABORTED", "#7f1d1d"),
-]
+# band geometry (y, height)
+BA, BB, BC, BD, BE = 114, 298, 564, 742, 884
+HA, HB, HC, HD, HE = 144, 212, 152, 124, 110
+BX = [44, 314, 584, 854, 1124, 1394]
+BW = 240
+ABOX = BA + 26          # 140
+BBOX = BB + 22          # 320
+CBOX = BC + 22          # 586
+DBOX = BD + 32          # 774
+BW_H, BH = 240, 164
+GX = [44, 447, 850, 1253]
+GW, GH = 383, 80
+
+WARN: list[str] = []
 
 
+# --------------------------------------------------------------------------- text helpers
 def esc(s: str) -> str:
     return html.escape(s, quote=True)
 
 
 def tw(s: str, size: float) -> float:
-    """Rough advance width (errs on the wide side: CJK = 1em, caps = 0.7em)."""
+    """Advance-width estimate (Tahoma/Arial, errs wide)."""
     w = 0.0
     for ch in s:
         o = ord(ch)
         if o > 0x2E7F:
-            w += size
+            w += size                      # CJK = full width
         elif ch.isupper():
-            w += size * 0.70
-        elif ch in " .,:;'|il!()[]/·-":
+            w += size * 0.72
+        elif ch in " .,:;'|il!()[]/<>·-":
             w += size * 0.36
         elif ch.isdigit() or ch.islower():
-            w += size * 0.58
+            w += size * 0.56
         else:
-            w += size * 0.65
-    return w * 1.015
+            w += size * 0.66
+    return w * 1.02
 
 
 def wrap(s: str, maxw: float, size: float) -> list[str]:
-    # CJK closing punctuation must not start a line -> glue it to the current one
     no_start = "。、，．）」』】》〉！？：；・ー…"
     out: list[str] = []
     for para in s.split("\n"):
@@ -88,379 +103,579 @@ def wrap(s: str, maxw: float, size: float) -> list[str]:
     return [x for x in out if x != ""] or [""]
 
 
-def t(x: float, y: float, s: str, size=10.3, fill=C["ink2"], weight="400",
-      anchor="start", font=FONT, ls=0) -> str:
-    extra = f' letter-spacing="{ls}"' if ls else ""
+def t(x, y, s, size=9, fill=C["ink2"], weight="400", anchor="start", font=F) -> str:
     return (f'<text x="{x:.1f}" y="{y:.1f}" font-family="{font}" font-size="{size}" '
-            f'fill="{fill}" font-weight="{weight}" text-anchor="{anchor}"{extra}>'
-            f'{esc(s)}</text>')
+            f'fill="{fill}" font-weight="{weight}" text-anchor="{anchor}">{esc(s)}</text>')
 
 
-def chip(x: float, y: float, label: str, fill: str, size=9.5, h=15, pad=8) -> str:
+def box(x, y, w, h, fill=C["white"], stroke=C["line"], sw=1) -> str:
+    return (f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h:.1f}" '
+            f'fill="{fill}" stroke="{stroke}" stroke-width="{sw}"/>')
+
+
+# --------------------------------------------------------------------------- SAP widgets
+def glyph(kind: str, cx: float, cy: float, s: float = 12) -> str:
+    """16px-class SAP icon glyph, drawn as thin black lines (S_B_* / S_F_*)."""
+    k, st = kind, f'stroke="{C["ink"]}" stroke-width="1.3" fill="none"'
+    h = s / 2
+    if k == "check":      # S_F_OKAY / 実行
+        return (f'<path d="M{cx-h},{cy} L{cx-h/3},{cy+h*0.6} L{cx+h},{cy-h*0.7}" {st}/>')
+    if k == "back":       # S_CRBACK F3
+        return (f'<path d="M{cx+h},{cy-h*0.7} L{cx-h*0.6},{cy-h*0.7} L{cx-h*0.6},{cy+h} '
+                f'M{cx-h},{cy+h*0.15} L{cx-h*0.6},{cy-h*0.7} L{cx-h},{cy-h*1.4}" {st}/>')
+    if k == "cancel":     # S_B_CANC F12
+        return (f'<path d="M{cx-h},{cy-h} L{cx+h},{cy+h} M{cx+h},{cy-h} L{cx-h},{cy+h}" {st}/>')
+    if k == "save":       # S_F_SAVE Ctrl+S (floppy)
+        return (f'<path d="M{cx-h},{cy-h} h{s*0.6} l{h*0.8},{h*0.8} v{h*1.2} h{-s*1.4} z" {st}/>'
+                f'<path d="M{cx-h*0.55},{cy-h} v{h*0.75} h{s*0.6} v{-h*0.75}" {st}/>')
+    if k == "print":      # 印刷
+        return (f'<path d="M{cx-h*0.8},{cy-h*0.4} h{s*0.8} v{h*0.8} h{-s*0.8} z" {st}/>'
+                f'<path d="M{cx-h*0.45},{cy+h*0.4} v{h*0.6} h{s*0.45} v{-h*0.6} z" {st}/>')
+    if k == "find":       # 検索
+        return (f'<circle cx="{cx-h*0.25}" cy="{cy-h*0.25}" r="{h*0.65}" {st}/>'
+                f'<path d="M{cx+h*0.25},{cy+h*0.25} L{cx+h},{cy+h}" {st}/>')
+    if k == "home":       # ファーストページ
+        return (f'<path d="M{cx-h},{cy} L{cx},{cy-h} L{cx+h},{cy} M{cx-h*0.6},{cy} v{h*0.9} '
+                f'h{s*0.6} v{-h*0.9}" {st}/>')
+    if k == "help":       # S_DIHELP F1
+        return (f'<circle cx="{cx}" cy="{cy}" r="{h}" {st}/>'
+                f'<text x="{cx}" y="{cy+h*0.55}" font-family="{F}" font-size="{s*0.85}" '
+                f'fill="{C["ink"]}" text-anchor="middle">?</text>')
+    if k == "first":      # ファーストページ
+        return (f'<path d="M{cx-h},{cy-h} v{s} M{cx-h*0.3},{cy-h} l{h*0.9},{h} M{cx-h*0.3},{cy+h} '
+                f'l{h*0.9},{-h}" {st}/>')
+    if k == "last":       # 最終ページ
+        return (f'<path d="M{cx+h},{cy-h} v{s} M{cx+h*0.3},{cy-h} l{-h*0.9},{h} M{cx+h*0.3},{cy+h} '
+                f'l{-h*0.9},{-h}" {st}/>')
+    if k == "layout":     # レイアウト
+        return (f'<path d="M{cx-h},{cy-h} h{s} v{s} h{-s} z M{cx-h},{cy-h*0.1} h{s} '
+                f'M{cx-h*0.15},{cy-h} v{s}" {st}/>')
+    return ""
+
+
+def sap_btn(x: float, y: float, label: str, fkey: str = "", icon: str = "",
+            h: float = 22, fill: str = None, ink: str = None, size: float = 9) -> float:
+    face = fill or C["btnface"]
+    inkc = ink or C["ink"]
+    w = 7 + (14 if icon else 0) + (4 if icon and label else 0) + tw(label, size)
+    if fkey:
+        w += 6 + tw(f"({fkey})", 8)
+    w += 8
+    o = [box(x, y, w, h, face, C["line"]),
+         f'<path d="M{x + 1},{y + h - 1} L{x + 1},{y + 1} L{x + w - 1},{y + 1}" '
+         f'stroke="{C["white"]}" stroke-width="1" fill="none"/>']
+    tx = x + 7
+    if icon:
+        o.append(glyph(icon, tx + 6, y + h / 2, 12))
+        tx += 18
+    o.append(t(tx, y + h / 2 + 3.3, label, size, inkc))
+    if fkey:
+        o.append(t(x + w - 8 - tw(f"({fkey})", 8), y + h / 2 + 3, f"({fkey})", 8, C["ink3"]))
+    return x + w + 4, "".join(o)
+
+
+def chip(x, y, label, fill, size=8, h=13, pad=6) -> str:
     w = tw(label, size) + pad * 2
-    return (f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{h}" rx="7.5" fill="{fill}"/>'
-            f'<text x="{x + w / 2:.1f}" y="{y + h - 4.6:.1f}" font-family="{FONT}" '
-            f'font-size="{size}" fill="#fff" font-weight="600" text-anchor="middle">{esc(label)}</text>')
+    return (box(x, y, w, h, fill, C["line"]) +
+            t(x + w / 2, y + h - 3.6, label, size, C["ink"], "700", anchor="middle"))
 
 
-def band(y: float, h: float, fill: str, accent: str, title: str, note: str = "") -> str:
-    o = [f'<rect x="20" y="{y}" width="1640" height="{h}" rx="14" fill="{fill}" '
-         f'stroke="{C["line"]}"/>',
-         f'<rect x="20" y="{y}" width="5" height="{h}" rx="2.5" fill="{accent}"/>',
-         chip(40, y + 10, title, accent, size=10, h=17, pad=10)]
+def band(y, h, fill, title, note="") -> str:
+    o = [box(20, y, 1640, h, C["white"], C["line"]),
+         f'<rect x="20" y="{y}" width="1640" height="22" fill="{fill}" '
+         f'stroke="{C["line"]}" stroke-width="1"/>',
+         t(30, y + 15, title, 9, C["ink"], "700")]
     if note:
-        nx = 40 + tw(title, 10) + 34
-        if nx + tw(note, 10) > 1644:
+        nx = 30 + tw(title, 9) + 16
+        if nx + tw(note, 8) > 1650:
             WARN.append(f"band note overflow: {note!r}")
-        o.append(t(nx, y + 22.5, note, 10, C["mut"]))
+        o.append(t(nx, y + 15, note, 8, C["ink2"]))
     return "".join(o)
 
 
-WARN: list[str] = []
-
-
-def node(x: float, y: float, w: float, h: float, accent: str, title: str,
-         tag: str, file_: str, body: str, dashed=False) -> str:
-    # --- layout self-check (fails loudly instead of silently overlapping) ---
-    chipw = tw(tag, 9) + 16
-    tw_title = tw(title, 12.4)
+def node(x, y, w, h, tone, title, tag, file, body, dashed=False) -> str:
+    chipw = tw(tag, 8) + 12
     avail = w - 28 - chipw - 8
-    if tw_title > avail:
-        WARN.append(f"title overflow {w:.0f}px box: {title!r} "
-                    f"({tw_title:.0f} > {avail:.0f})")
-    if tw(file_, 9.7) > w - 32:
-        WARN.append(f"file overflow: {file_!r} ({tw(file_, 9.7):.0f} > {w - 32:.0f})")
-    lines = wrap(body, w - 38, 10.3)
-    bottom = y + 59 + (len(lines) - 1) * 13.6 + 4
+    if tw(title, 12) > avail and tw(title, 9) > avail:
+        WARN.append(f"title overflow {w:.0f}px box: {title!r}")
+    tsize = 12 if tw(title, 12) <= avail else 9
+    if tw(file, 9) > w - 26:
+        WARN.append(f"file overflow: {file!r}")
+    lines = wrap(body, w - 26, 9)
+    bottom = y + 52 + (len(lines) - 1) * 12 + 3
     if bottom > y + h:
         WARN.append(f"body overflow in {title!r}: {len(lines)} lines, "
                     f"need {bottom - y:.0f}px / have {h}px")
-        for ln in lines:
-            WARN.append(f"      | {ln}  [{tw(ln, 10.3):.0f}px]")
-        WARN.append(f"      | (max line width {w - 38:.0f}px)")
-    o = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="10" fill="#fff" '
-         f'stroke="{C["line"]}"{" stroke-dasharray=\"5 4\"" if dashed else ""}/>',
-         f'<rect x="{x}" y="{y + 7}" width="5" height="{h - 14}" rx="2.5" fill="{accent}"/>']
-    o.append(t(x + 16, y + 23, title, 12.4, C["blue_dk"], "600"))
-    tw_ = tw(tag, 9)
-    o.append(chip(x + w - 12 - (tw_ + 16), y + 9, tag, accent, size=9, h=14, pad=8))
-    o.append(t(x + 16, y + 40, file_, 9.7, accent, "600", font=MONO))
+        WARN.extend(f"      | {ln}  [{tw(ln, 9):.0f}px]" for ln in lines)
+        WARN.append(f"      | (max line width {w - 26:.0f}px)")
+    o = [box(x, y, w, h, C["white"], C["line"]),
+         f'<rect x="{x}" y="{y}" width="{w}" height="4" fill="{tone}" '
+         f'stroke="{C["line"]}" stroke-width="1"/>']
+    if dashed:
+        o.append(f'<rect x="{x + 0.5}" y="{y + 0.5}" width="{w - 1}" height="{h - 1}" '
+                 f'fill="none" stroke="{C["ink3"]}" stroke-width="1" stroke-dasharray="4 3"/>')
+    o.append(t(x + 10, y + 20, title, tsize, C["ink"], "700"))
+    o.append(chip(x + w - 10 - chipw, y + 6, tag, C["header"], 8, 13, 6))
+    o.append(f'<path d="M{x + 1},{y + 24} H{x + w - 1}" stroke="{tone}" stroke-width="1"/>')
+    o.append(t(x + 10, y + 37, file, 9, C["link"]))
     for i, ln in enumerate(lines):
-        o.append(t(x + 16, y + 59 + i * 13.6, ln, 10.3, C["ink2"]))
+        o.append(t(x + 10, y + 52 + i * 12, ln, 9, C["ink2"]))
     return "".join(o)
 
 
-def arrow(x1, y1, x2, y2, color="#8fa3ba", dbl=False, w=1.6, dash=False) -> str:
-    d = f'<path d="M{x1},{y1} L{x2},{y2}" stroke="{color}" stroke-width="{w}" fill="none"' \
-        f'{" stroke-dasharray=\"5 4\"" if dash else ""} marker-end="url(#ah)"/>'
+def arrow(x1, y1, x2, y2, color=None, dbl=False, dash=False) -> str:
+    col = color or C["line"]
+    da = ' stroke-dasharray="4 3"' if dash else ""
+    d = (f'<path d="M{x1},{y1} L{x2},{y2}" stroke="{col}" stroke-width="1" fill="none"{da} '
+         f'marker-end="url(#ah)"/>')
     if dbl:
-        d += f'<path d="M{x2},{y2} L{x1},{y1}" stroke="{color}" stroke-width="{w}" ' \
-             f'fill="none" marker-end="url(#ah)"/>'
+        d += (f'<path d="M{x2},{y2} L{x1},{y1}" stroke="{col}" stroke-width="1" fill="none" '
+              f'marker-end="url(#ah)"/>')
     return d
 
 
-def path(d: str, color="#8fa3ba", w=1.6, dash=False) -> str:
-    return (f'<path d="{d}" stroke="{color}" stroke-width="{w}" fill="none" '
-            f'marker-end="url(#ah)"{" stroke-dasharray=\"5 4\"" if dash else ""}/>')
+def curve(d, color=None, dash=True, w=1) -> str:
+    da = ' stroke-dasharray="4 3"' if dash else ""
+    return (f'<path d="{d}" stroke="{color or C["ink3"]}" stroke-width="{w}" fill="none"{da} '
+            f'marker-end="url(#ah)"/>')
 
 
-svg = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" '
-       f'height="{H}" class="flow" role="img" aria-label="SAP Config Automation operations flow">',
-       f'<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
-       f'markerHeight="6" orient="auto-start-reverse">'
-       f'<path d="M0,1 L9,5 L0,9 z" fill="#8fa3ba"/></marker>'
-       f'<marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
-       f'markerHeight="6" orient="auto-start-reverse">'
-       f'<path d="M0,1 L9,5 L0,9 z" fill="{C["green"]}"/></marker>'
-       f'<marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" '
-       f'markerHeight="6" orient="auto-start-reverse">'
-       f'<path d="M0,1 L9,5 L0,9 z" fill="{C["blue"]}"/></marker></defs>',
-       f'<rect width="{W}" height="{H}" fill="#f5f6f7"/>']
-
-# ---- shell bar -------------------------------------------------------------
-svg.append(f'<rect x="0" y="0" width="{W}" height="54" fill="{C["shell"]}"/>')
-svg.append(t(22, 29, "SAP Config Automation", 17, "#fff", "700"))
-svg.append(t(22, 45, "運用フロー構成図 — Configuration as Code: Template → Plan → 承認 → Apply（Mock）→ 検証 → 証跡",
-             11.5, "#c9d8e8"))
-svg.append(chip(1400, 12, "adapter: MOCK SAP GUI", "#0e6b3a", size=10.5, h=17, pad=11))
-svg.append(chip(1560, 12, "実 SAP 非接続", "#8a5a00", size=10.5, h=17, pad=11))
-
-Y = {}
-# ---- lane 1: human ---------------------------------------------------------
-YA, HA = 74, 144
-svg.append(band(YA, HA, C["human"], C["orange"], "LANE 1 · 人間（コンサルタント / 運用担当）",
-                "ヒューマンインザループ：承認と例外処理だけを人が持つ"))
-Y["A"] = 100
-svg.append(node(44, Y["A"], 240, 104, C["orange"], "① 業務テンプレート作成", "HUMAN",
-                "templates/*.yaml",
-                "顧客変数と設定ステップ（OB13 / OB29 / OBY6 / OX02 / OX10）を YAML で記述。"
-                "資格情報・SQL・GUI制御ID の記載はスキーマが拒否する。"))
-svg.append(node(584, Y["A"], 240, 104, C["orange"], "④ 承認（人）", "APPROVE",
-                "run.py apply --approve …",
-                "UPDATE・CONFLICT・needs_approval の項目を1件ずつ承認。CONFLICT は明示 override が必須。"
-                "未承認は MANUAL として人間キューに残る。"))
-svg.append(node(1124, Y["A"], 240, 104, C["orange"], "例外：人間キュー / KILL", "QUEUE",
-                "runs/<run_id>/KILL",
-                "読み戻し不一致や権限・入力・競合エラーは自動リトライせず停止。"
-                "KILL マーカーで残ステップを ABORTED にする。"))
-svg.append(node(1394, Y["A"], 240, 104, C["orange"], "⑧ レポート確認 / KB 承認", "REVIEW",
-                "report.md · error_kb/pending.json",
-                "PoC 指標とエラー分類表を確認。未知エラーは consultant の承認後にのみルール化される。"))
-
-# ---- lane 2: pipeline ------------------------------------------------------
-YB, HB = 258, 212
-svg.append(band(YB, HB, C["pipe"], C["blue"], "LANE 2 · 自動化パイプライン（本マシン / Python）",
-                "read-only な Plan と、承認ゲート付き Apply の状態機械"))
-Y["B"] = 280
-BX = [44, 314, 584, 854, 1124, 1394]
-BW, BH = 240, 164
-svg.append(node(BX[0], Y["B"], BW, BH, C["blue"], "② Load & Validate", "INPUT",
-                "schema/*.json · sapcfg/load.py",
-                "JSON Schema で構造検証（必須項目・型・パターン）。\n"
-                "続いてセマンティック検査で資格情報・SQL・GUI制御ID を拒否。\n"
-                "{{var}} を顧客変数の値へ解決。1件でも不正なら Plan へ進まず停止。"))
-svg.append(node(BX[1], Y["B"], BW, BH, C["blue"], "③ Plan（差分・読取専用）", "PLAN",
-                "sapcfg/planner.py → plan.json",
-                "依存関係を DAG 化しトポロジカル順に整列。\n"
-                "現状と比較し、差分を CREATE / UPDATE / SKIP / CONFLICT / BLOCKED / ERROR "
-                "として理由付きで出力。\n"
-                "SKIP ＝ 一致（冪等）。SAP は1バイトも変更しない。"))
-svg.append(node(BX[2], Y["B"], BW, BH, C["blue"], "④ 承認ゲート（強制）", "GATE",
-                "sapcfg/orchestrator.py",
-                "gate = UPDATE / CONFLICT / needs_approval。\n"
-                "各行の実行直前に承認の有無を確認し、未承認なら1ステップも実行しない（MANUAL）。\n"
-                "実行前に target の system / client 三重チェックと kill switch を確認。"))
-svg.append(node(BX[3], Y["B"], BW, BH, C["blue"], "⑤ Apply 実行（状態機械）", "APPLY",
-                "orchestrator.py · steps/fi_basic.py",
-                "1項目ごとに：現状読取 → 画面操作 → 保存。\n"
-                "attempts ≤ 3（初回＋自動リトライ2回）。\n"
-                "リトライ可：LOCK / TRANSIENT / NAVIGATION のみ。\n"
-                "結果：SUCCESS / FAILED / MANUAL / BLOCKED / ABORTED。"))
-svg.append(node(BX[4], Y["B"], BW, BH, C["blue"], "⑥ 読み戻し検証", "VERIFY",
-                "sapcfg/verify.py",
-                "保存後の実値を eq / neq / contains / in / regex で期待値と比較。\n"
-                "SKIP は Plan 時点で verified 扱い。\n"
-                "不一致は FAILED（リトライしない）→ 人間キュー。\n"
-                "＝「本当に書けたか」を必ず実値で確かめる。"))
-svg.append(node(BX[5], Y["B"], BW, BH, C["blue"], "⑦ 証跡 & レポート", "STORE · REPORT",
-                "sapcfg/store.py · reporter.py",
-                "runs/<run_id>/ に plan.json・events.jsonl（全イベント）・run.sqlite（再開可）・"
-                "evidence/*.svg（画面証跡）・report.md。\n"
-                "再実行では SUCCESS をスキップし、途中から再開できる。"))
-
-# ---- lane 3: SAP side ------------------------------------------------------
-YC, HC = 524, 152
-svg.append(band(YC, HC, C["sap"], C["green"], "LANE 3 · SAP 側（Phase 1 = Mock SAP GUI）",
-                "このマシンから出る唯一の接続先。実 SAP DB への書き込みコードは存在しない"))
-Y["C"] = 546
-svg.append(node(44, Y["C"], 740, 96, C["green"], "Phase 2 ロードマップ：実 SAP GUI Scripting チャネル",
-                "ROADMAP", "sapcfg/gui/win_gui.py（Windows 専用）",
-                "① Windows ＋ SAP GUI Scripting 有効化、② SAPCFG_ALLOW_REAL_SAP=1、"
-                "③ client release ごとに画面マップを1回記録。3条件が揃うまで import すら不可。\n"
-                "揃った後は、同じ template → plan → 承認 → apply が実機を対象にする"
-                "（Transport 連携は Phase 3）。", dashed=True))
-svg.append(node(854, Y["C"], 240, 96, C["green"], "Mock SAP GUI ドライバ", "MOCK",
-                "sapcfg/gui/mock.py",
-                "画面カタログ通りに歩進し、in-process の設定ストアを更新。"
-                "障害注入（例：E071K ロック）でリトライ経路も再現できる。"))
-svg.append(node(1124, Y["C"], 240, 96, C["green"], "設定ストア（読取対象）", "STATE",
-                "in-process（実 SAP 非接続）",
-                "読み戻し検証が参照する唯一の状態。実 SAP DB への INSERT / UPDATE SQL は"
-                "コード上に存在しない。"))
-
-# ---- lane 4: guard rails ---------------------------------------------------
-YD, HD = 702, 124
-svg.append(band(YD, HD, C["guard"], C["indigo"], "LANE 4 · 横断ガードレール（Plan / Apply の全ステップに適用）"))
-Y["D"] = 734
-GX = [44, 447, 850, 1253]
-GW, GH = 383, 80
-guards = [
-    ("Kill Switch（即時中断）", "runs/KILL マーカー / .kill_switch / SAPCFG_KILL_SWITCH=1 "
-     "→ 残りのステップをすべて ABORTED にする。"),
-    ("Target 三重チェック（§8）", "各ステップ実行の直前に system / client をプラン対象と照合。"
-     "不一致なら run 全体を ABORTED にする。"),
-    ("アダプタ・ガードと入力の禁止事項", "win_gui.py は Windows ＋ SAPCFG_ALLOW_REAL_SAP=1 が"
-     "無ければ import 不可。テンプレートに資格情報・SQL・制御ID は書けない。"),
-    ("Error KB（§7.2）＋ 26 オフライン単体テスト", "未知エラーは pending.json へ起案"
-     "（auto_fix_allowed=false / High リスク / 要コンサル承認）。"),
-]
-for x, (title, body) in zip(GX, guards):
-    svg.append(f'<rect x="{x}" y="{Y["D"]}" width="{GW}" height="{GH}" rx="10" fill="#fff" '
-               f'stroke="{C["line"]}"/>')
-    svg.append(f'<rect x="{x}" y="{Y["D"]}" width="{GW}" height="4" rx="2" fill="{C["indigo"]}"/>')
-    svg.append(t(x + 14, Y["D"] + 23, title, 11.6, C["blue_dk"], "600"))
-    glines = wrap(body, GW - 34, 10.1)
-    if len(glines) > 3:
-        WARN.append(f"guard card body truncated: {title!r} ({len(glines)} lines > 3)")
-    for i, ln in enumerate(glines[:3]):
-        svg.append(t(x + 14, Y["D"] + 40 + i * 13.2, ln, 10.1, C["ink2"]))
-
-# ---- lane 5: states + commands --------------------------------------------
-YE, HE = 844, 110
-svg.append(band(YE, HE, C["state"], C["mut"], "LANE 5 · 状態カタログと操作"))
-svg.append(t(44, YE + 46, "Plan の差分：", 10.4, C["ink2"], "600"))
-CMDX = 950
-x = 44 + tw("Plan の差分：", 10.4) + 6
-for label, col in STATUS:
-    svg.append(chip(x, YE + 34, label, col, size=9.5, h=16, pad=9))
-    x += tw(label, 9.5) + 16 + 6
-svg.append(t(44, YE + 74, "実行の結果：", 10.4, C["ink2"], "600"))
-x = 44 + tw("実行の結果：", 10.4) + 6
-for label, col in RESULT:
-    svg.append(chip(x, YE + 62, label, col, size=9.5, h=16, pad=9))
-    x += tw(label, 9.5) + 16 + 6
-if x > CMDX - 30:
-    WARN.append(f"state chips row overflow: ends at x={x:.0f}, CLI block starts at {CMDX}")
+def alv(x, y, w, header: list[tuple[str, float]], rows: list[list[str]],
+        rh=16, hh=20) -> str:
+    o = [box(x, y, w, hh + rh * len(rows), C["white"], C["line"]),
+         f'<rect x="{x}" y="{y}" width="{w}" height="{hh}" fill="{C["header"]}" '
+         f'stroke="{C["line"]}" stroke-width="1"/>']
+    cx = x
+    for (name, cw) in header:
+        o.append(t(cx + 6, y + 14, name, 9, C["ink"], "700"))
+        if cx > x:
+            o.append(f'<path d="M{cx},{y} V{y + hh + rh * len(rows)}" stroke="{C["line"]}"/>')
+        cx += cw
+    for i, row in enumerate(rows):
+        ry = y + hh + i * rh
+        o.append(f'<rect x="{x + 1}" y="{ry}" width="{w - 2}" height="{rh}" '
+                 f'fill="{C["filter"] if i % 2 == 0 else C["white"]}"/>')
+        cx = x
+        for j, (cell, (_, cw)) in enumerate(zip(row, header)):
+            o.append(t(cx + 6, ry + 12, cell, 9, C["ink"] if j == 0 else C["ink2"]))
+            cx += cw
+    return "".join(o)
 
 
-svg.append(t(CMDX, YE + 27, "CLI", 10.4, C["blue_dk"], "700"))
-cmds = [
-    "uv run python run.py plan                                  # 差分のみ（書き込みなし）",
-    "uv run python run.py apply --run <run_id> --approve <item_id>",
-    "uv run python run.py report --run <run_id>   /   run.py demo",
-    "uv run python webui/server.py --port 8912    # コンソール（SAP Fiori 風 UI）",
-]
-for i, c in enumerate(cmds):
-    y = YE + 44 + i * 15
-    svg.append(f'<rect x="{CMDX}" y="{y - 10.6}" width="686" height="14.4" rx="4" fill="#eef3fa"/>')
-    svg.append(t(CMDX + 7, y, c, 9.6, "#2456a6", font=MONO))
+def state_cell(x, y, label, color, w=0) -> str:
+    w = w or tw(label, 8) + 16
+    return (box(x, y, w, 16, C["white"], C["line"]) +
+            f'<rect x="{x + 1}" y="{y + 1}" width="3" height="14" fill="{color}"/>' +
+            t(x + w / 2 + 2, y + 11.4, label, 8, C["ink"], "700", anchor="middle"))
 
-# ---- connectors ------------------------------------------------------------
-A_HUM, B_TOP, B_BOT = Y["A"], Y["B"], Y["B"] + BH
-B_MID = Y["B"] + 60
-svg.append(arrow(164, A_HUM + 104, 164, B_TOP))                       # A1 -> B1
-svg.append(arrow(680, B_TOP, 680, A_HUM + 104, C["orange"]))          # B3 -> A2 (request)
-svg.append(t(672, 242, "承認要求", 9.6, C["orange"], "600", anchor="end"))
-svg.append(arrow(728, A_HUM + 104, 728, B_TOP, C["orange"]))          # A2 -> B3 (grant)
-svg.append(t(736, 242, "承認 + consent", 9.6, C["orange"], "600"))
-svg.append(arrow(1244, B_TOP, 1244, A_HUM + 104, C["orange"]))        # B5 -> A3
-svg.append(t(1252, 242, "不一致 → 人間キュー", 9.6, C["orange"], "600"))
-svg.append(arrow(1514, B_TOP, 1514, A_HUM + 104, C["orange"]))        # B6 -> A4
-svg.append(t(1522, 242, "report.md", 9.6, C["orange"], "600"))
 
-for i in range(5):                                                    # B chain
-    svg.append(arrow(BX[i] + BW + 2, B_MID, BX[i + 1] - 2, B_MID, C["blue"]))
-svg.append(path(f"M1180,{B_BOT} V500 H1046 V{B_BOT}", C["amber"], 1.8, dash=True))  # retry loop
-svg.append(t(1105, 494, "自動リトライ ≤ 2", 10, C["amber"], "600", anchor="middle"))
-svg.append(arrow(900, B_BOT, 900, Y["C"], C["green"], dbl=True))      # B4 <-> mock GUI
-svg.append(t(906, 498, "GUI 操作 / 状態読取", 9.6, C["green"], "600"))
-svg.append(arrow(1290, Y["C"], 1290, B_BOT, C["green"]))              # store -> verify
-svg.append(t(1296, 498, "読み戻し値", 9.6, C["green"], "600"))
+PLAN_STATUS = [("CREATE", "#1D7A8A"), ("UPDATE", "#0E6B8A"), ("SKIP", "#808080"),
+               ("CONFLICT", C["err"]), ("BLOCKED", "#6D3B9E"), ("ERROR", "#B91C1C")]
+STEP_RESULT = [("SUCCESS", C["ok"]), ("RUNNING", C["link"]), ("RETRYING", "#B7791F"),
+               ("SKIPPED", "#808080"), ("FAILED", C["err"]), ("MANUAL", "#7C3AED"),
+               ("BLOCKED", "#6D3B9E"), ("ABORTED", "#7F1D1D")]
 
-svg.append("</svg>")
-SVG = "\n".join(svg)
+# --------------------------------------------------------------------------- texts (ja / en)
+TX = {
+ "ja": dict(
+  htmltitle="SAP Config Automation — 運用フロー構成図 [JA]",
+  wintitle="SAP Config Automation  ·  運用フロー構成図  [SAP GUI 五層モック]",
+  menu=["プログラム(P)", "編集(E)", "移動(G)", "お気に入り(F)", "システム(Y)", "ヘルプ(H)"],
+  menu_right="SAP Config Automation 1.0",
+  okcode="SAPCFG_PLAN",
+  l3="SAPCFG_FLOW  —  運用フロー構成図（Configuration as Code / Plan + Mock）",
+  l3r="システム: MOCK   クライアント: 100   ユーザー: SAPCFG",
+  appbar=[("実行", "F8", "check"), ("戻る", "F3", "back"), ("保存", "Ctrl+S", "save"),
+          ("取消", "F12", "cancel"), ("印刷", "", "print"), ("ヘルプ", "F1", "help")],
+  appbar_badge="PLAN-ONLY / MOCK",
+  l2_badge=[("adapter: MOCK SAP GUI", C["ok"]), ("実 SAP 非接続", "#8A5A00")],
+  bands={
+   "A": ("LANE 1 · 人（コンサルタント / 運用担当）", "承認と例外処理だけを人が持つ"),
+   "B": ("LANE 2 · 自動化パイプライン（本マシン / Python）", "読み取り専用の Plan と、承認ゲート付き Apply"),
+   "C": ("LANE 3 · SAP 側（Phase 1 = Mock SAP GUI）", "接続先はこの 1 つだけ。実 SAP DB への書き込みコードは無い"),
+   "D": ("LANE 4 · 横断ガードレール", "Plan / Apply の全ステップに適用"),
+   "E": ("LANE 5 · 状態カタログと操作", "Plan の差分 / 実行結果 / コマンド"),
+  },
+  n_A1=dict(title="① 業務テンプレート作成", tag="HUMAN", file="templates/*.yaml",
+            body="顧客変数と設定ステップ（OB13 / OB29 / OBY6 / OX02 / OX10）を YAML で記述。"
+                 "資格情報・SQL・GUI制御ID の記載はスキーマが拒否する。"),
+  n_A2=dict(title="④ 承認（人）", tag="APPROVE", file="run.py apply --approve …",
+            body="UPDATE・CONFLICT・needs_approval を 1 件ずつ承認。CONFLICT は明示 override 必須。"
+                 "未承認は MANUAL として人間キューに残る。"),
+  n_A3=dict(title="例外：人間キュー / KILL", tag="QUEUE", file="runs/<run_id>/KILL",
+            body="読み戻し不一致や権限・入力・競合エラーは自動リトライせず停止。"
+                 "KILL マーカーで残ステップを ABORTED にする。"),
+  n_A4=dict(title="⑧ レポート確認 / KB 承認", tag="REVIEW", file="report.md · error_kb/pending.json",
+            body="PoC 指標とエラー分類表を確認。未知エラーは consultant の承認後にのみルール化される。"),
+  n_B1=dict(title="② Load & Validate", tag="INPUT", file="schema/*.json · sapcfg/load.py",
+            body="JSON Schema で構造検証（必須項目・型・パターン）。\n次のセマンティック検査で資格情報・"
+                 "SQL・GUI制御ID を拒否。{{var}} を顧客変数へ解決。\n1 件でも不正なら Plan へ進まず停止する。"),
+  n_B2=dict(title="③ Plan（差分・読取専用）", tag="PLAN", file="sapcfg/planner.py → plan.json",
+            body="依存関係を DAG 化しトポロジカル順に整列。\n現状と比較し、差分を CREATE / UPDATE / SKIP / "
+                 "CONFLICT / BLOCKED / ERROR として理由付きで出力。\nSKIP ＝ 一致（冪等）。SAP は変更しない。"),
+  n_B3=dict(title="④ 承認ゲート（強制）", tag="GATE", file="sapcfg/orchestrator.py",
+            body="gate = UPDATE / CONFLICT / needs_approval。\n各行の実行直前に承認を確認し、未承認なら"
+                 "1 ステップも実行しない（MANUAL）。\n実行前に system / client の三重チェックと kill switch を確認。"),
+  n_B4=dict(title="⑤ Apply 実行（状態機械）", tag="APPLY", file="orchestrator.py · steps/fi_basic.py",
+            body="1 項目ごとに：現状読取 → 画面操作 → 保存。\nattempts ≦ 3（初回＋自動リトライ 2 回）。"
+                 "リトライ可：LOCK / TRANSIENT / NAVIGATION のみ。\n結果：SUCCESS / FAILED / MANUAL / "
+                 "BLOCKED / ABORTED。"),
+  n_B5=dict(title="⑥ 読み戻し検証", tag="VERIFY", file="sapcfg/verify.py",
+            body="保存後の実値を eq / neq / contains / in / regex で期待値と比較。\nSKIP は Plan 時点で "
+                 "verified 扱い。\n不一致は FAILED（リトライしない）→ 人間キュー。\n＝「本当に書けたか」を実値で確かめる。"),
+  n_B6=dict(title="⑦ 証跡 & レポート", tag="STORE · REPORT", file="sapcfg/store.py · reporter.py",
+            body="runs/<run_id>/ に plan.json・events.jsonl（全イベント）・run.sqlite（再開可）・"
+                 "evidence/*.svg（画面証跡）・report.md。\n再実行では SUCCESS をスキップし途中から再開できる。"),
+  n_C0=dict(title="Phase 2 ロードマップ：実 SAP GUI Scripting", tag="ROADMAP",
+            file="sapcfg/gui/win_gui.py（Windows 専用）",
+            body="① Windows ＋ SAP GUI Scripting 有効化、② SAPCFG_ALLOW_REAL_SAP=1、"
+                 "③ client release ごとに画面マップを 1 回記録。\n3 条件が揃うまで import すら不可。"
+                 "揃った後は同じ template → plan → 承認 → apply が実機を対象にする（Transport は Phase 3）。"),
+  n_C1=dict(title="Mock SAP GUI ドライバ", tag="MOCK", file="sapcfg/gui/mock.py",
+            body="画面カタログ通りに歩進し、in-process の設定ストアを更新。"
+                 "障害注入（例：E071K ロック）でリトライ経路も再現できる。"),
+  n_C2=dict(title="設定ストア（読取対象）", tag="STATE", file="in-process（実 SAP 非接続）",
+            body="読み戻し検証が参照する唯一の状態。実 SAP DB への INSERT / UPDATE SQL はコード上に存在しない。"),
+  guards=[("Kill Switch（即時中断）",
+           "runs/KILL マーカー / .kill_switch / SAPCFG_KILL_SWITCH=1 → 残りのステップを ABORTED にする。"),
+          ("Target 三重チェック",
+           "各ステップ実行の直前に system / client をプラン対象と照合。不一致なら run 全体を ABORTED。"),
+          ("アダプタ・ガードと入力の禁止事項",
+           "win_gui.py は Windows ＋ SAPCFG_ALLOW_REAL_SAP=1 が無ければ import 不可。"
+           "テンプレートに資格情報・SQL・制御ID は書けない。"),
+          ("Error KB ＋ 26 オフライン単体テスト",
+           "未知エラーは pending.json へ起案（auto_fix_allowed=false / High / 要コンサル承認）。")],
+  e_plan="Plan の差分：", e_result="実行の結果：",
+  e_alv_h=[("コマンド", 396), ("説明", 294)],
+  e_alv=[("uv run python run.py plan", "差分のみ（書き込みなし）"),
+         ("uv run python run.py apply --run <run_id> --approve <item_id>", "承認済み項目のみ実行"),
+         ("uv run python run.py report --run <run_id>", "Markdown レポートを出力"),
+         ("uv run python webui/server.py --port 8912", "Web コンソール（本画面の実体）")],
+  msg="(I)  情報：Phase 1 は Mock SAP GUI のみ。実 SAP / 実 DB への接続・書き込みは行いません。",
+  ar_req="承認要求", ar_grant="承認 + consent", ar_mismatch="不一致 → 人間キュー",
+  ar_report="report.md", ar_retry="自動リトライ ≦ 2", ar_gui="GUI 操作 / 状態読取", ar_read="読み戻し値",
+  dl="SVG をダウンロード", pr="印刷 / PDF", lang_switch="English", lang_switch_href="system_flow.en.html",
+  spec="SAP GUI 五層レイアウト（L1 メニューバー / L2 システムツールバー / L3 タイトル / "
+       "L4 アプリケーションツールバー / L5 データ領域）準拠のモック。配色・罫線・ボタンは "
+       "SAP-GUI界面設計模版 V1.0（#D9E5F2 / #9DB9D9 / #AECAEC / #ECECEC / #808080・Tahoma 9pt）",
+ ),
+ "en": dict(
+  htmltitle="SAP Config Automation — Operations flow [EN]",
+  wintitle="SAP Config Automation  ·  Operations flow  [SAP GUI 5-layer mock]",
+  menu=["Program(P)", "Edit(E)", "Goto(G)", "Favorites(F)", "System(Y)", "Help(H)"],
+  menu_right="SAP Config Automation 1.0",
+  okcode="SAPCFG_PLAN",
+  l3="SAPCFG_FLOW  —  Operations flow (Configuration as Code / Plan + Mock)",
+  l3r="System: MOCK   Client: 100   User: SAPCFG",
+  appbar=[("Execute", "F8", "check"), ("Back", "F3", "back"), ("Save", "Ctrl+S", "save"),
+          ("Cancel", "F12", "cancel"), ("Print", "", "print"), ("Help", "F1", "help")],
+  appbar_badge="PLAN-ONLY / MOCK",
+  l2_badge=[("adapter: MOCK SAP GUI", C["ok"]), ("no real-SAP connection", "#8A5A00")],
+  bands={
+   "A": ("LANE 1 · People (consultant / operations)", "only approvals and exceptions stay with humans"),
+   "B": ("LANE 2 · Automation pipeline (this machine / Python)", "read-only Plan + gated Apply"),
+   "C": ("LANE 3 · SAP side (Phase 1 = Mock SAP GUI)", "the only endpoint; no code writes to a real SAP DB"),
+   "D": ("LANE 4 · Cross-cutting guard rails", "applied to every Plan / Apply step"),
+   "E": ("LANE 5 · State catalog and commands", "plan diff / step results / CLI"),
+  },
+  n_A1=dict(title="① Author the template", tag="HUMAN", file="templates/*.yaml",
+            body="Customer variables and config steps (OB13 / OB29 / OBY6 / OX02 / OX10) in YAML. "
+                 "Credentials, SQL and GUI control-IDs are rejected by the schema."),
+  n_A2=dict(title="④ Approval (human)", tag="APPROVE", file="run.py apply --approve …",
+            body="Approve UPDATE / CONFLICT / needs_approval one by one; CONFLICT needs an explicit "
+                 "override. Unapproved items stay in the human queue as MANUAL."),
+  n_A3=dict(title="Exception: queue / KILL", tag="QUEUE", file="runs/<run_id>/KILL",
+            body="Read-back mismatches and permission / input / conflict errors never retry - they "
+                 "stop here. The KILL marker turns remaining steps into ABORTED."),
+  n_A4=dict(title="⑧ Review report / KB", tag="REVIEW", file="report.md · error_kb/pending.json",
+            body="Check PoC metrics and the error-classification table. Unknown errors become rules "
+                 "only after a consultant approves them."),
+  n_B1=dict(title="② Load & Validate", tag="INPUT", file="schema/*.json · sapcfg/load.py",
+            body="Structural validation against JSON Schema (required, types, patterns). "
+                 "Semantic checks reject credentials / SQL / control-IDs.\n"
+                 "{{var}} is resolved from the customer variables. One bad item stops the run."),
+  n_B2=dict(title="③ Plan (diff, read-only)", tag="PLAN", file="sapcfg/planner.py → plan.json",
+            body="Dependencies become a DAG, sorted topologically.\nCompared with current state, every "
+                 "diff is emitted as CREATE / UPDATE / SKIP / CONFLICT / BLOCKED / ERROR with a reason.\n"
+                 "SKIP = already matching (idempotent). SAP is not touched."),
+  n_B3=dict(title="④ Approval gate", tag="GATE", file="sapcfg/orchestrator.py",
+            body="gate = UPDATE / CONFLICT / needs_approval.\nApproval is checked right before each item "
+                 "runs; without it not one step executes (MANUAL).\nTarget system/client triple-check "
+                 "and kill switch are verified first."),
+  n_B4=dict(title="⑤ Apply (state machine)", tag="APPLY", file="orchestrator.py · steps/fi_basic.py",
+            body="Per item: read current state -> drive the screens -> save.\nattempts <= 3 (initial + 2 "
+                 "auto retries); retry only for LOCK / TRANSIENT / NAVIGATION.\n"
+                 "Result: SUCCESS / FAILED / MANUAL / BLOCKED / ABORTED."),
+  n_B5=dict(title="⑥ Read-back verification", tag="VERIFY", file="sapcfg/verify.py",
+            body="Persisted values are compared with expectations via eq / neq / contains / in / regex.\n"
+                 "SKIP counts as verified at plan time.\nA mismatch is FAILED (no retry) -> human queue.\n"
+                 "Proof that it really persisted."),
+  n_B6=dict(title="⑦ Evidence & report", tag="STORE · REPORT", file="sapcfg/store.py · reporter.py",
+            body="runs/<run_id>/ holds plan.json, events.jsonl (every event), run.sqlite (resumable), "
+                 "evidence/*.svg (screen shots) and report.md.\nRe-runs skip SUCCESS items and resume mid-way."),
+  n_C0=dict(title="Phase 2 roadmap: real SAP GUI Scripting", tag="ROADMAP",
+            file="sapcfg/gui/win_gui.py (Windows only)",
+            body="1) Windows with GUI Scripting enabled, 2) SAPCFG_ALLOW_REAL_SAP=1, "
+                 "3) screen maps recorded once per client release.\nUntil all three hold the module "
+                 "cannot even be imported. Then the same template -> plan -> approval -> apply targets "
+                 "the real system (Transport = Phase 3)."),
+  n_C1=dict(title="Mock SAP GUI driver", tag="MOCK", file="sapcfg/gui/mock.py",
+            body="Walks the screen catalog and updates the in-process config store. Fault injection "
+                 "(e.g. an E071K lock) reproduces the retry path."),
+  n_C2=dict(title="Config store (read-back)", tag="STATE", file="in-process (no real SAP)",
+            body="The only state read-back verification looks at. No INSERT / UPDATE SQL against a real "
+                 "SAP DB exists anywhere in the code."),
+  guards=[("Kill switch (immediate stop)",
+           "runs/KILL marker / .kill_switch / SAPCFG_KILL_SWITCH=1 -> all remaining steps become ABORTED."),
+          ("Target triple-check",
+           "Right before every step, system / client are compared with the planned target; a mismatch "
+           "aborts the whole run."),
+          ("Adapter guard / forbidden inputs",
+           "win_gui.py cannot be imported without Windows + SAPCFG_ALLOW_REAL_SAP=1. Templates may not "
+           "contain credentials, SQL or control-IDs."),
+          ("Error KB + 26 offline unit tests",
+           "Unknown errors are proposed to pending.json (auto_fix_allowed=false / High / needs approval).")],
+  e_plan="Plan statuses:", e_result="Step results:",
+  e_alv_h=[("Command", 396), ("Description", 294)],
+  e_alv=[("uv run python run.py plan", "diff only (no writes)"),
+         ("uv run python run.py apply --run <run_id> --approve <item_id>", "execute approved items only"),
+         ("uv run python run.py report --run <run_id>", "print the Markdown report"),
+         ("uv run python webui/server.py --port 8912", "web console (the real screen)")],
+  msg="(I)  Info: Phase 1 runs against the Mock SAP GUI only. It never connects to or writes to a real SAP system.",
+  ar_req="approval request", ar_grant="approval + consent", ar_mismatch="mismatch -> human queue",
+  ar_report="report.md", ar_retry="auto-retry <= 2", ar_gui="GUI ops / state read", ar_read="read-back values",
+  dl="Download SVG", pr="Print / PDF", lang_switch="日本語", lang_switch_href="system_flow.ja.html",
+  spec="Mock built on the SAP GUI five-layer layout (L1 menu bar / L2 system toolbar / L3 title / "
+       "L4 application toolbar / L5 data area). Colours, rules and buttons follow "
+       "SAP-GUI界面设计模版 V1.0 (#D9E5F2 / #9DB9D9 / #AECAEC / #ECECEC / #808080, Tahoma 9pt).",
+ ),
+}
 
-(OUT / "system_flow.svg").write_text(
-    '<?xml version="1.0" encoding="UTF-8"?>\n' + SVG + "\n", encoding="utf-8")
+SYS_ICONS = [("check", "Enter"), ("back", "F3"), ("cancel", "F12"), ("save", "Ctrl+S"),
+             ("print", "Ctrl+P"), ("find", "Ctrl+F"), ("home", "Home"), ("first", "First"),
+             ("last", "Last"), ("help", "F1"), ("layout", "Layout")]
 
-# ---- HTML page (Fiori Horizon-ish) ----------------------------------------
+
+# --------------------------------------------------------------------------- SVG builder
+def build_svg(lang: str) -> str:
+    T = TX[lang]
+    s = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" '
+         f'height="{H}" class="flow" role="img" aria-label="SAP Config Automation flow ({lang})">',
+         f'<defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" '
+         f'markerHeight="6" orient="auto-start-reverse">'
+         f'<path d="M0,1 L7,4 L0,7 z" fill="{C["line"]}"/></marker></defs>',
+         f'<rect width="{W}" height="{H}" fill="{C["l5"]}"/>']
+
+    # ---- L1 menu bar ----------------------------------------------------
+    s.append(f'<rect x="0" y="0" width="{W}" height="{L1H}" fill="{C["l1"]}"/>')
+    x = 8
+    for item in T["menu"]:
+        s.append(t(x, 12.5, item, 8, C["ink3"]))
+        x += tw(item, 8) + 16
+    s.append(t(W - 8, 12.5, T["menu_right"], 8, C["ink3"], anchor="end"))
+
+    # ---- L2 system toolbar ---------------------------------------------
+    s.append(f'<rect x="0" y="{L1H}" width="{W}" height="{L2H}" fill="{C["l2"]}"/>')
+    icy = L1H + L2H / 2
+    s.append(glyph("check", 20, icy, 13))
+    ox = 34
+    s.append(f'<rect x="{ox}" y="{L1H + 4}" width="190" height="18" fill="{C["white"]}" '
+             f'stroke="{C["line"]}"/>')
+    s.append(t(ox + 5, L1H + 16.5, T["okcode"], 9, C["ink"]))
+    s.append(f'<path d="M{ox + 174},{L1H + 11} l9,0 l-4.5,5 z" fill="{C["ink"]}"/>')
+    ix = ox + 198
+    for kind, tip in SYS_ICONS:
+        s.append(f'<rect x="{ix:.0f}" y="{L1H + 3}" width="22" height="20" fill="#E8EFF7" '
+                 f'stroke="{C["line"]}"><title>{esc(tip)}</title></rect>')
+        s.append(glyph(kind, ix + 11, icy, 12))
+        ix += 24
+    bx = W - 8
+    for label, col in reversed(T["l2_badge"]):
+        wch = tw(label, 9) + 16
+        s.append(box(bx - wch, L1H + 4, wch, 18, C["white"], C["line"]))
+        s.append(t(bx - wch / 2, L1H + 16.5, label, 9, col, "700", anchor="middle"))
+        bx -= wch + 6
+
+    # ---- L3 title bar ---------------------------------------------------
+    ty = L1H + L2H
+    s.append(f'<rect x="0" y="{ty}" width="{W}" height="{L3H}" fill="{C["l3"]}"/>')
+    s.append(t(10, ty + 16, T["l3"], 12, C["ink"], "700"))
+    s.append(t(W - 10, ty + 15, T["l3r"], 8, C["ink3"], anchor="end"))
+
+    # ---- L4 application toolbar ----------------------------------------
+    ay = ty + L3H
+    s.append(f'<rect x="0" y="{ay}" width="{W}" height="{L4H}" fill="{C["l4"]}"/>')
+    x = 8
+    for label, fkey, icon in T["appbar"]:
+        x, f = sap_btn(x, ay + 3, label, fkey, icon, 22)
+        s.append(f)
+    badge = T["appbar_badge"]
+    bwd = tw(badge, 9) + 18
+    s.append(box(W - 8 - bwd, ay + 3, bwd, 22, C["search"], C["line"]))
+    s.append(t(W - 8 - bwd / 2, ay + 17.5, badge, 9, C["ink"], "700", anchor="middle"))
+
+    # ---- L5 data area: lanes -------------------------------------------
+    for key, fill in (("A", C["header"]), ("B", C["alv"]), ("C", C["filter"]),
+                      ("D", C["disabled"]), ("E", C["label"])):
+        y = {"A": BA, "B": BB, "C": BC, "D": BD, "E": BE}[key]
+        h = {"A": HA, "B": HB, "C": HC, "D": HD, "E": HE}[key]
+        s.append(band(y, h, fill, T["bands"][key][0], T["bands"][key][1]))
+
+    N = T
+    s.append(node(44, ABOX, BW, 104, C["header"], **N["n_A1"]))
+    s.append(node(584, ABOX, BW, 104, C["header"], **N["n_A2"]))
+    s.append(node(1124, ABOX, BW, 104, C["header"], **N["n_A3"]))
+    s.append(node(1394, ABOX, BW, 104, C["header"], **N["n_A4"]))
+    for i, k in enumerate(("n_B1", "n_B2", "n_B3", "n_B4", "n_B5", "n_B6")):
+        s.append(node(BX[i], BBOX, BW, BH, C["alv"], **N[k]))
+    s.append(node(44, CBOX, 740, 96, C["filter"], dashed=True, **N["n_C0"]))
+    s.append(node(854, CBOX, BW, 96, C["filter"], **N["n_C1"]))
+    s.append(node(1124, CBOX, BW, 96, C["filter"], **N["n_C2"]))
+
+    # ---- L5: guard rails (ALV-header style cards) ----------------------
+    for x0, (gt, gb) in zip(GX, N["guards"]):
+        s.append(box(x0, DBOX, GW, GH, C["white"], C["line"]))
+        s.append(f'<rect x="{x0}" y="{DBOX}" width="{GW}" height="18" fill="{C["header"]}" '
+                 f'stroke="{C["line"]}"/>')
+        s.append(t(x0 + 8, DBOX + 13, gt, 9, C["ink"], "700"))
+        glines = wrap(gb, GW - 18, 9)
+        if len(glines) > 3:
+            WARN.append(f"guard card truncated: {gt!r} ({len(glines)} lines > 3)")
+        for i, ln in enumerate(glines[:3]):
+            s.append(t(x0 + 8, DBOX + 32 + i * 12, ln, 9, C["ink2"]))
+
+    # ---- L5: states (left) + command list (ALV, right) -----------------
+    s.append(t(44, BE + 42, T["e_plan"], 9, C["ink"], "700"))
+    cx = 44 + tw(T["e_plan"], 9) + 6
+    for label, col in PLAN_STATUS:
+        s.append(state_cell(cx, BE + 34, label, col))
+        cx += tw(label, 8) + 22
+    s.append(t(44, BE + 70, T["e_result"], 9, C["ink"], "700"))
+    cx = 44 + tw(T["e_result"], 9) + 6
+    for label, col in STEP_RESULT:
+        s.append(state_cell(cx, BE + 62, label, col))
+        cx += tw(label, 8) + 22
+    if cx > 940:
+        WARN.append(f"state cells overflow into the ALV area: x={cx:.0f}")
+    s.append(alv(950, BE + 22, 690, T["e_alv_h"], [list(r) for r in T["e_alv"]]))
+
+    # ---- connectors ----------------------------------------------------
+    s.append(arrow(164, ABOX + 104, 164, BBOX))
+    s.append(arrow(680, BBOX, 680, ABOX + 104))
+    s.append(t(674, BA + 158, T["ar_req"], 8, C["ink"], anchor="end"))
+    s.append(arrow(728, ABOX + 104, 728, BBOX))
+    s.append(t(736, BA + 158, T["ar_grant"], 8, C["ink"]))
+    s.append(arrow(1244, BBOX, 1244, ABOX + 104))
+    s.append(t(1252, BA + 158, T["ar_mismatch"], 8, C["ink"]))
+    s.append(arrow(1514, BBOX, 1514, ABOX + 104))
+    s.append(t(1522, BA + 158, T["ar_report"], 8, C["ink"]))
+    for i in range(5):
+        s.append(arrow(BX[i] + BW + 2, BBOX + 60, BX[i + 1] - 2, BBOX + 60))
+    bbot = BBOX + BH
+    s.append(curve(f"M1180,{bbot} V540 H1046 V{bbot}"))
+    s.append(t(1105, 534, T["ar_retry"], 8, C["ink"], "700", anchor="middle"))
+    s.append(arrow(900, bbot, 900, CBOX, dbl=True))
+    s.append(t(906, 538, T["ar_gui"], 8, C["ink"]))
+    s.append(arrow(1290, CBOX, 1290, bbot))
+    s.append(t(1296, 538, T["ar_read"], 8, C["ink"]))
+
+    # ---- message line (C604 情報) -------------------------------------
+    s.append(box(20, MSG_Y, 1640, 16, C["white"], C["line"]))
+    s.append(f'<rect x="21" y="{MSG_Y + 1}" width="3" height="14" fill="{C["link"]}"/>')
+    s.append(t(32, MSG_Y + 11.5, T["msg"], 9, C["ink2"]))
+
+    # ---- layer separators + window border ------------------------------
+    for y in (L1H, L1H + L2H, L1H + L2H + L3H, DATA_TOP):
+        s.append(f'<path d="M0,{y} H{W}" stroke="{C["line"]}" stroke-width="1"/>')
+    s.append(f'<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" fill="none" '
+             f'stroke="{C["line"]}"/>')
+    s.append("</svg>")
+    return "\n".join(s)
+
+
 HTML = """<!DOCTYPE html>
-<html lang="ja">
+<html lang="__LANG__">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SAP Config Automation · 運用フロー構成図</title>
+<title>__HTMLTITLE__</title>
 <style>
-  :root{
-    --brand:#0070f2; --brand-dk:#1e3a5f; --bg:#f5f6f7; --card:#fff; --line:#dbe3ec;
-    --ink:#0f1c2e; --ink2:#33465c; --mut:#64748b; --green:#1b7f3b; --amber:#b7791f;
-  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:14px/1.6 '72','IBM Plex Sans',-apple-system,'Hiragino Sans','Yu Gothic UI','PingFang SC','Segoe UI',sans-serif}
-  .shell{height:44px;background:var(--brand-dk);color:#fff;display:flex;align-items:center;
-    gap:12px;padding:0 16px;position:sticky;top:0;z-index:10}
-  .shell .brand{font-weight:700;font-size:14px;letter-spacing:.2px}
-  .shell .sep{width:1px;height:20px;background:rgba(255,255,255,.25)}
-  .shell .crumb{font-size:13px;color:#c9d8e8}
-  .shell .grow{flex:1}
-  .badge{font-size:11px;padding:2px 9px;border-radius:99px;background:rgba(255,255,255,.16)}
-  .badge.ok{background:#0e6b3a}
-  .page{max-width:1740px;margin:0 auto;padding:18px 20px 40px}
-  .hdr{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin:6px 0 14px}
-  .hdr h1{margin:0 0 4px;font-size:22px;font-weight:600;color:var(--brand-dk)}
-  .hdr p{margin:0;color:var(--ink2);font-size:13.5px;max-width:1040px}
-  .btns{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
-  a.act,button.act{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 16px;
-    border-radius:8px;border:1px solid transparent;background:var(--brand);color:#fff;
-    font:600 13.5px inherit;cursor:pointer;text-decoration:none}
-  a.act.ghost,button.act.ghost{background:#fff;color:var(--brand);border-color:var(--brand)}
-  a.act:focus-visible,button.act:focus-visible{outline:2px solid var(--brand-dk);outline-offset:2px}
-  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:0 0 14px}
-  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
-    box-shadow:0 1px 3px rgba(15,28,46,.05)}
-  .tile .l{font-size:11.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
-  .tile .v{font-size:19px;font-weight:600;color:var(--brand);margin:3px 0 2px}
-  .tile .s{font-size:12px;color:var(--ink2)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;
-    box-shadow:0 1px 3px rgba(15,28,46,.05)}
-  .card h2{margin:2px 0 10px;font-size:15px;color:var(--brand-dk);font-weight:600}
-  .card p.lead{margin:0 0 10px;color:var(--ink2);font-size:12.8px}
+  body{margin:0;padding:14px;background:#D4D0C8;color:#000;
+    font:11px Tahoma,Arial,'MS Gothic','Hiragino Kaku Gothic ProN','Yu Gothic UI',sans-serif}
+  .win{max-width:1740px;margin:0 auto;background:#D4D0C8;border:1px solid #808080;
+    padding:2px;box-shadow:2px 2px 0 rgba(0,0,0,.22)}
+  .winbar{display:flex;align-items:center;gap:8px;background:#000080;color:#fff;
+    font:700 12px Tahoma,Arial,'MS Gothic',sans-serif;padding:3px 6px}
+  .winbar .grow{flex:1}
+  .wbtn{width:18px;height:14px;display:inline-flex;align-items:center;justify-content:center;
+    background:#D4D0C8;border:1px solid #fff;border-right-color:#808080;
+    border-bottom-color:#808080;color:#000;font:700 9px Tahoma,sans-serif}
+  .client{background:#F2F2F2;border:1px solid #808080}
   svg.flow{width:100%;height:auto;display:block}
-  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:var(--ink2)}
-  .legend b{color:var(--brand-dk)}
-  footer{color:#8aa0b8;font-size:11.5px;padding:14px 2px}
+  .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:4px;
+    background:#D4D0C8;border:1px solid #fff;border-right-color:#808080;border-bottom-color:#808080}
+  .sbtn{display:inline-block;background:#D4D0C8;color:#000;cursor:pointer;text-decoration:none;
+    border:1px solid #808080;border-top-color:#fff;border-left-color:#fff;
+    font:9px Tahoma,Arial,'MS Gothic',sans-serif;padding:3px 10px}
+  .sbtn:hover{background:#E4E0D8}
+  .note{font:8px Tahoma,Arial,'MS Gothic',sans-serif;color:#666;margin:8px 2px 0;max-width:1250px;
+    line-height:1.7}
+  @media print{body{background:#fff;padding:0}.win{box-shadow:none;max-width:none}.tools{display:none}}
 </style>
 </head>
 <body>
-<div class="shell">
-  <span class="brand">SAP Config Automation</span>
-  <span class="sep"></span>
-  <span class="crumb">運用フロー構成図</span>
-  <span class="grow"></span>
-  <span class="badge ok">adapter: MOCK SAP GUI</span>
-  <span class="badge">Phase 1 · 実 SAP 非接続</span>
-</div>
-<div class="page">
-  <div class="hdr">
-    <div>
-      <h1>運用フロー構成図 — Configuration as Code</h1>
-      <p>標準 SAP カスタマイズ（OB13 / OB29 / OBY6 / OX02 / OX10 など）をテンプレート（YAML）として
-      コード化し、<b>検証 → Plan（読み取り専用の差分） → 人による per-item 承認 → Apply（状態機械） →
-      読み戻し検証 → 証跡とレポート</b> の順に流すパイプラインです。Phase 1 の実行先は
-      in-process の Mock SAP GUI だけで、実 SAP へは接続しません。</p>
-    </div>
-    <div class="btns">
-      <a class="act" href="system_flow.svg" download>SVG をダウンロード</a>
-      <button class="act ghost" onclick="window.print()">印刷 / PDF</button>
-    </div>
+<div class="win">
+  <div class="winbar"><span>__WINTITLE__</span><span class="grow"></span>
+    <span class="wbtn">_</span><span class="wbtn">&#9633;</span><span class="wbtn">&#10005;</span></div>
+  <div class="client">
+__SVG__
   </div>
-
-  <div class="tiles">
-    <div class="tile"><div class="l">人の判断が必要な箇所</div><div class="v">3</div>
-      <div class="s">テンプレート作成・per-item 承認・例外/レポート確認</div></div>
-    <div class="tile"><div class="l">自動リトライ上限</div><div class="v">2 回</div>
-      <div class="s">LOCK / TRANSIENT / NAVIGATION のみ。他は人間キューへ</div></div>
-    <div class="tile"><div class="l">読み戻し検証</div><div class="v">全キー項目</div>
-      <div class="s">eq / neq / contains / in / regex で保存後の実値を比較</div></div>
-    <div class="tile"><div class="l">証跡</div><div class="v">100% 保存</div>
-      <div class="s">plan.json・events.jsonl・run.sqlite・evidence/*.svg・report.md</div></div>
-    <div class="tile"><div class="l">オフライン単体テスト</div><div class="v">26 件</div>
-      <div class="s">unittest・Mock データ・ネットワーク不要</div></div>
+  <div class="tools">
+    <a class="sbtn" href="system_flow.__LANG__.svg" download>__DL__</a>
+    <button class="sbtn" onclick="window.print()">__PR__</button>
+    <a class="sbtn" href="__SWITCH_HREF__">__SWITCH__</a>
   </div>
-
-  <div class="card">
-    <h2>End-to-end flow（実行主体 / レイヤ別）</h2>
-    <p class="lead">青＝パイプライン、橙＝人のアクション、緑＝SAP 側（Mock）、紫＝全ステップに効く横断ガードレール。
-      点線の矢印は自動リトライ、実線は通常の流れです。</p>
-    __SVG__
-    <div class="legend">
-      <span><b>冪等性：</b>一致すれば SKIP（SKIPPED_IDEMPOTENT）、再実行時は SUCCESS を飛ばして再開</span>
-      <span><b>有限の自己修復：</b>一時エラーのみリトライ、境界を超えたら必ず人へ</span>
-      <span><b>可監査性：</b>before / after 値と分類済みメッセージを全件保存</span>
-    </div>
-  </div>
-  <footer>SAP Config Automation · docs/build_flow_diagram.py が生成 / デザイントークンは
-    docs/system_flow.svg と webui/index.html で共通（SAP S/4 系の Fiori 風スタイル）。</footer>
+  <p class="note">__SPEC__<br/>
+    generated by docs/build_flow_diagram.py &#183; style: skill `sap-gui-screen` (SAP-GUI界面设计模版 V1.0)
+  </p>
 </div>
 </body>
 </html>
 """
-(OUT / "system_flow.html").write_text(HTML.replace("__SVG__", SVG), encoding="utf-8")
-print("wrote:", OUT / "system_flow.svg", OUT / "system_flow.html")
-if WARN:
-    print("\n! layout warnings (self-check):")
-    for wmsg in WARN:
-        print("  -", wmsg)
-    raise SystemExit(1)
-print("layout self-check: OK (no text overflow)")
+
+
+def build_html(lang: str, svg: str) -> str:
+    T = TX[lang]
+    return (HTML.replace("__SVG__", svg).replace("__LANG__", lang)
+            .replace("__HTMLTITLE__", esc(T["htmltitle"]))
+            .replace("__WINTITLE__", esc(T["wintitle"]))
+            .replace("__DL__", T["dl"]).replace("__PR__", T["pr"])
+            .replace("__SWITCH__", T["lang_switch"])
+            .replace("__SWITCH_HREF__", T["lang_switch_href"])
+            .replace("__SPEC__", T["spec"]))
+
+
+def main() -> None:
+    for lang in ("ja", "en"):
+        svg = build_svg(lang)
+        (OUT / f"system_flow.{lang}.svg").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>\n' + svg + "\n", encoding="utf-8")
+        (OUT / f"system_flow.{lang}.html").write_text(build_html(lang, svg), encoding="utf-8")
+        print(f"wrote: system_flow.{lang}.svg  system_flow.{lang}.html")
+        if lang == "ja":
+            # 互換エイリアス: docs/TUTORIAL.md / TUTORIAL-IMAGES.md が docs/system_flow.svg を参照している
+            (OUT / "system_flow.svg").write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n' + svg + "\n", encoding="utf-8")
+            (OUT / "system_flow.html").write_text(build_html(lang, svg), encoding="utf-8")
+            print("wrote: system_flow.svg  system_flow.html  (JA alias for existing links)")
+    if WARN:
+        print("\n! layout warnings (self-check):")
+        for m in WARN:
+            print("  -", m)
+        raise SystemExit(1)
+    print("layout self-check: OK (no text overflow)")
+
+
+if __name__ == "__main__":
+    main()
