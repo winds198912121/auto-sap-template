@@ -54,6 +54,21 @@ Documents/SAP/sap-config-automation/
 | Apply needs an existing plan + per-item approval | gate in `orchestrator._run_item`; overwrite/`human_approval` items → human queue |
 | Credentials / SQL / GUI control-IDs forbidden in templates | schema + semantic checks (`load._semantic_checks`) |
 
+## Tutorials (Japanese)
+
+| version | what | link |
+|---|---|---|
+| テキスト版 | step-by-step usage guide: install → console → CLI → own template → troubleshooting → FAQ | [`docs/TUTORIAL.md`](docs/TUTORIAL.md) |
+| 画像版 | the same guide as 13 shareable cards (1 image = 1 step, A4 portrait) + console screenshots | [`docs/TUTORIAL-IMAGES.md`](docs/TUTORIAL-IMAGES.md) |
+
+[![使い方ガイド（画像版）](docs/tutorial/cards/00_cover.png)](docs/TUTORIAL-IMAGES.md)
+
+| console · plan diff | console · gated apply (mock SAP GUI) |
+|---|---|
+| ![plan](docs/tutorial/screenshots/04_plan.png) | ![apply](docs/tutorial/screenshots/06_run_live.png) |
+
+Cards are regenerated from the live console with `python3 docs/tutorial/build_cards.py` (headless Chrome).
+
 ## Quickstart
 
 ```bash
